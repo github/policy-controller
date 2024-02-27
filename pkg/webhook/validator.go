@@ -35,7 +35,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
-	"github.com/sigstore/cosign/v2/pkg/oci"
 	ociremote "github.com/sigstore/cosign/v2/pkg/oci/remote"
 	"github.com/sigstore/cosign/v2/pkg/policy"
 	"github.com/sigstore/policy-controller/pkg/apis/config"
@@ -57,7 +56,21 @@ import (
 
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
+
+	sgroot "github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore-go/pkg/verify"
 )
+
+type Signature interface {
+	Digest() (v1.Hash, error)
+	Payload() ([]byte, error)
+	Signature() ([]byte, error)
+	Cert() (*x509.Certificate, error)
+}
+
+// Assert that Signature implements policy.PayloadProvider (used by
+// policy.AttestationToPayloadJSON)
+var _ policy.PayloadProvider = (Signature)(nil)
 
 type Validator struct{}
 
@@ -524,8 +537,12 @@ func ValidatePolicy(ctx context.Context, namespace string, ref name.Reference, c
 				result.static = true
 
 			case len(authority.Attestations) > 0:
-				// We're doing the verify-attestations path, so validate (.att)
-				result.attestations, result.err = ValidatePolicyAttestationsForAuthority(ctx, ref, authority, authorityRemoteOpts...)
+				if authority.SignatureFormat == "bundle" {
+					result.attestations, result.err = ValidatePolicyAttestationsForAuthorityWithBundle(ctx, ref, authority, kc)
+				} else {
+					// We're doing the verify-attestations path, so validate (.att)
+					result.attestations, result.err = ValidatePolicyAttestationsForAuthority(ctx, ref, authority, authorityRemoteOpts...)
+				}
 
 			default:
 				result.signatures, result.err = ValidatePolicySignaturesForAuthority(ctx, ref, authority, authorityRemoteOpts...)
@@ -639,7 +656,7 @@ func ValidatePolicy(ctx context.Context, namespace string, ref name.Reference, c
 	return policyResult, authorityErrors
 }
 
-func ociSignatureToPolicySignature(ctx context.Context, sigs []oci.Signature) []PolicySignature {
+func ociSignatureToPolicySignature(ctx context.Context, sigs []Signature) []PolicySignature {
 	ret := make([]PolicySignature, 0, len(sigs))
 	for _, ociSig := range sigs {
 		logging.FromContext(ctx).Debugf("Converting signature %+v", ociSig)
@@ -681,7 +698,7 @@ func ociSignatureToPolicySignature(ctx context.Context, sigs []oci.Signature) []
 }
 
 // signatureID creates a unique hash for the Signature, using both the signature itself + the cert.
-func signatureID(sig oci.Signature) (string, error) {
+func signatureID(sig Signature) (string, error) {
 	h := sha256.New()
 	s, err := sig.Signature()
 	if err != nil {
@@ -713,7 +730,7 @@ func signatureID(sig oci.Signature) (string, error) {
 // PolicyAttestations upon completion without needing to refetch any of the
 // parts.
 type attestation struct {
-	oci.Signature
+	Signature
 
 	PredicateType string
 	Payload       []byte
@@ -833,7 +850,7 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 		return nil, fmt.Errorf("creating CheckOpts: %w", err)
 	}
 
-	verifiedAttestations := []oci.Signature{}
+	verifiedAttestations := []Signature{}
 	switch {
 	case authority.Key != nil && len(authority.Key.PublicKeys) > 0:
 		for _, k := range authority.Key.PublicKeys {
@@ -878,6 +895,10 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 	}
 	logging.FromContext(ctx).Debugf("Found %d valid attestations, validating policies for them", len(verifiedAttestations))
 
+	return checkPredicates(ctx, authority, verifiedAttestations)
+}
+
+func checkPredicates(ctx context.Context, authority webhookcip.Authority, verifiedAttestations []Signature) (map[string][]PolicyAttestation, error) {
 	// Now spin through the Attestations that the user specified and validate
 	// them.
 	// TODO(vaikas): Pretty inefficient here, figure out a better way if
@@ -963,6 +984,59 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 		ret[wantedAttestation.Name] = attestationToPolicyAttestations(ctx, checkedAttestations)
 	}
 	return ret, nil
+}
+
+func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref name.Reference, authority webhookcip.Authority, kc authn.Keychain) (map[string][]PolicyAttestation, error) {
+	remoteOpts := []remote.Option{
+		remote.WithContext(ctx),
+		remote.WithAuthFromKeychain(kc),
+	}
+	// TODO: Apply authority.Source options (Tag prefix, alternative registry, and signature pull secrets)
+	if len(remoteOpts) > 0 {
+		remoteOpts = append(remoteOpts, remoteOpts...)
+	}
+
+	var trustedMaterial sgroot.TrustedMaterial
+
+	trustRoot, err := sigstoreKeysFromContext(ctx, authority.Keyless.TrustRootRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trusted root from context: %w", err)
+	}
+	if pbTrustedRoot, ok := trustRoot.SigstoreKeys[authority.Keyless.TrustRootRef]; ok {
+		trustedMaterial, err = sgroot.NewTrustedRootFromProtobuf(pbTrustedRoot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse trusted root from protobuf: %w", err)
+		}
+	} else {
+		return nil, fmt.Errorf("failed to find trusted root \"%s\"", authority.Keyless.TrustRootRef)
+	}
+
+	if authority.Keyless.Identities == nil {
+		return nil, errors.New("must specify at least one identity for keyless authority")
+	}
+
+	policyOptions := make([]verify.PolicyOption, 0, len(authority.Keyless.Identities))
+	for _, id := range authority.Keyless.Identities {
+		// The sanType is intentionally left blank, as there is currently no means
+		// to specify it in the policy, and its absence means it will just not
+		// verify the type.
+		id, err := verify.NewShortCertificateIdentity(id.Issuer, id.Subject, "", id.SubjectRegExp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create certificate identity: %w", err)
+		}
+		policyOptions = append(policyOptions, verify.WithCertificateIdentity(id))
+	}
+
+	verifiedBundles, err := AttestationBundles(ref, trustedMaterial, remoteOpts, policyOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(verifiedBundles) == 0 {
+		return nil, errors.New("no verified bundles found")
+	}
+
+	return checkPredicates(ctx, authority, verifiedBundles)
 }
 
 // ResolvePodScalable implements policyduckv1beta1.PodScalableValidator
