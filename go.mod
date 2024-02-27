@@ -63,6 +63,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/sigstore/protobuf-specs v0.3.1
 	github.com/sigstore/scaffolding v0.6.17
+	github.com/sigstore/sigstore-go v0.2.0
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.3
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.3
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.3
@@ -239,6 +240,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
 	github.com/thales-e-security/pool v0.0.2 // indirect
+	github.com/theupdateframework/go-tuf/v2 v2.0.0-20240207172116-f5cf71290141 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect

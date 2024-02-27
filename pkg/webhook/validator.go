@@ -54,8 +54,11 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
+	"github.com/sigstore/policy-controller/pkg/webhook/verify"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
+
+	sgverify "github.com/sigstore/sigstore-go/pkg/verify"
 )
 
 type Validator struct{}
@@ -523,8 +526,17 @@ func ValidatePolicy(ctx context.Context, namespace string, ref name.Reference, c
 				result.static = true
 
 			case len(authority.Attestations) > 0:
-				// We're doing the verify-attestations path, so validate (.att)
-				result.attestations, result.err = ValidatePolicyAttestationsForAuthority(ctx, ref, authority, authorityRemoteOpts...)
+				// To support bundle verification, we need to decide when to invoke the
+				// bundle verifier. For now, we just use the bundle verifier if the
+				// authority name is "github", otherwise we use the regular verifier.
+				// TODO: Add option to ClusterImagePolicy to allow user to specify which
+				// verifier to use.
+				if authority.Keyless != nil && authority.Keyless.TrustRootRef == "github" {
+					result.attestations, result.err = ValidatePolicyAttestationsForAuthorityWithBundle(ctx, ref, authority, kc)
+				} else {
+					// We're doing the verify-attestations path, so validate (.att)
+					result.attestations, result.err = ValidatePolicyAttestationsForAuthority(ctx, ref, authority, authorityRemoteOpts...)
+				}
 
 			default:
 				result.signatures, result.err = ValidatePolicySignaturesForAuthority(ctx, ref, authority, authorityRemoteOpts...)
@@ -962,6 +974,83 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 		ret[wantedAttestation.Name] = attestationToPolicyAttestations(ctx, checkedAttestations)
 	}
 	return ret, nil
+}
+
+func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref name.Reference, authority webhookcip.Authority, kc authn.Keychain) (map[string][]PolicyAttestation, error) {
+	_ = ctx // TODO: Use context for verifier when it lands in sigstore-go
+	trustedRoot, err := verify.TrustedRootGithubStaging()
+	if err != nil {
+		return nil, err
+	}
+
+	if authority.Keyless.Identities == nil {
+		return nil, errors.New("must specify at least one identity for keyless authority")
+	}
+
+	// TODO: support more than one identity
+	id := authority.Keyless.Identities[0]
+	certID, err := sgverify.NewShortCertificateIdentity(id.Issuer, id.Subject, "", id.SubjectRegExp)
+	if err != nil {
+		return nil, err
+	}
+
+	bundle, result, err := verify.AttestationBundle(ref, trustedRoot, kc, sgverify.WithCertificateIdentity(certID))
+	if err != nil {
+		return nil, err
+	}
+
+	statementBytes, err := json.Marshal(result.Statement)
+	if err != nil {
+		return nil, err
+	}
+
+	// sha256 of statement
+	statementDigest := sha256.Sum256(statementBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: generate "signature ID" from the signature?
+	sig := string(bundle.GetDsseEnvelope().Signatures[0].Sig)
+
+	ret := make(map[string][]PolicyAttestation, 1)
+	pa := PolicyAttestation{
+		PolicySignature: PolicySignature{
+			ID:      sig,
+			Subject: result.VerifiedIdentity.SubjectAlternativeName.Value,
+			Issuer:  result.VerifiedIdentity.Issuer,
+			GithubExtensions: GithubExtensions{
+				WorkflowTrigger: result.VerifiedIdentity.Extensions.GithubWorkflowTrigger,
+				WorkflowSHA:     result.VerifiedIdentity.Extensions.GithubWorkflowSHA,
+				WorkflowName:    result.VerifiedIdentity.Extensions.GithubWorkflowName,
+				WorkflowRepo:    result.VerifiedIdentity.Extensions.GithubWorkflowRepository,
+				WorkflowRef:     result.VerifiedIdentity.Extensions.GithubWorkflowRef,
+			},
+		},
+		PredicateType: result.Statement.PredicateType,
+		Payload:       statementBytes,
+		Digest:        string(statementDigest[:]),
+	}
+
+	// TODO: support more than one attestation
+	att := authority.Attestations[0]
+	if att.PredicateType != result.Statement.PredicateType {
+		return nil, fmt.Errorf("predicate type mismatch: %s != %s", att.PredicateType, result.Statement.PredicateType)
+	}
+	ret[att.Name] = []PolicyAttestation{pa}
+
+	if att.Type != "" {
+		warn, err := policy.EvaluatePolicyAgainstJSON(ctx, att.Name, att.Type, att.Data, statementBytes)
+		if err != nil || warn != nil {
+			logging.FromContext(ctx).Warnf("failed policy validation for %s: %v", att.Name, err)
+			if err != nil {
+				return nil, err
+			}
+			return nil, warn
+		}
+	}
+
+	return nil, nil
 }
 
 // ResolvePodScalable implements policyduckv1beta1.PodScalableValidator
