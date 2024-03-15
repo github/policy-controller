@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"knative.dev/pkg/apis"
 	logtesting "knative.dev/pkg/logging/testing"
 
@@ -237,6 +238,25 @@ var sigstoreKeys = map[string]string{
 	"tsa":    tsaCertChain,
 }
 
+// canonicalizeSigstoreKeys round-trips the SigstoreKeys through protojson so
+// the output is deterministic for the current test run. This is necessary
+// because protojson has "randomly deterministic" output, meaning it will add
+// whitespace randomly depending on the digest of the executable.
+// See https://go-review.googlesource.com/c/protobuf/+/151340 and
+// https://github.com/golang/protobuf/issues/1121
+func canonicalizeSigstoreKeys(in string) string {
+	keys := &config.SigstoreKeys{}
+	err := protojson.Unmarshal([]byte(in), keys)
+	if err != nil {
+		panic(err)
+	}
+	out, err := protojson.Marshal(keys)
+	if err != nil {
+		panic(err)
+	}
+	return string(out)
+}
+
 func TestReconcile(t *testing.T) {
 	rootJSONDecoded, err := base64.StdEncoding.DecodeString(rootJSON)
 	if err != nil {
@@ -333,7 +353,7 @@ func TestReconcile(t *testing.T) {
 			makeDifferentConfigMap(),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			makePatch(replacePatchFmtString, trName, marshalledEntry),
+			makePatch(replacePatchFmtString, trName, canonicalizeSigstoreKeys(marshalledEntry)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: NewTrustRoot(trName,
@@ -358,7 +378,7 @@ func TestReconcile(t *testing.T) {
 			makeDifferentConfigMap(),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			makePatch(replacePatchFmtString, trName, marshalledEntry),
+			makePatch(replacePatchFmtString, trName, canonicalizeSigstoreKeys(marshalledEntry)),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("patch", "configmaps"),
@@ -480,7 +500,7 @@ func makeConfigMapWithMirrorFS() *corev1.ConfigMap {
 			Namespace: system.Namespace(),
 			Name:      config.SigstoreKeysConfigName,
 		},
-		Data: map[string]string{"test-trustroot": marshalledEntryFromMirrorFS},
+		Data: map[string]string{"test-trustroot": canonicalizeSigstoreKeys(marshalledEntryFromMirrorFS)},
 	}
 }
 
@@ -507,7 +527,7 @@ func makeConfigMapWithTwoEntries() *corev1.ConfigMap {
 			Name:      config.SigstoreKeysConfigName,
 		},
 		Data: map[string]string{
-			trName:  marshalledEntry,
+			trName:  canonicalizeSigstoreKeys(marshalledEntry),
 			tkName2: "remove me please",
 		},
 	}
