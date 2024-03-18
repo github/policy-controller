@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	_ "embed"
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
@@ -50,6 +51,7 @@ import (
 
 	. "github.com/sigstore/policy-controller/pkg/reconciler/testing/v1alpha1"
 	"github.com/sigstore/policy-controller/pkg/reconciler/trustroot/resources"
+	"github.com/sigstore/policy-controller/pkg/reconciler/trustroot/testdata"
 	. "knative.dev/pkg/reconciler/testing"
 	_ "knative.dev/pkg/system/testing"
 )
@@ -64,101 +66,11 @@ const (
 	uid             = "test-uid"
 	uid2            = "test-uid-2"
 
-	// NOTE: To generate these values, I deployed the scaffolding bits on a kind clusters
-	// using the setup-kind.sh and setup-scaffolding-from-release.sh scripts.
-	// Then I extracted the root.json from the tuf-system secrets 'tuf-root' and 'tuf-secrets'.
-	// Finally I extracted the rest of public keys from other secrets (ctlog-public-key, fulcio-pub-key)
-	// located in the cluster under the tuf-system namespace.
-	ctfePublicKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvffI/l54rF7zt3/3BfNoX1twzqH7
-7upU19F2Y+wuGoa2VcDZs2K98Q+gro8Ed8mAqA2zTTtHezAoi2oAueg78Q==
------END PUBLIC KEY-----
-`
 	// This is the LogID for above PublicKey
 	ctfeLogID = "bbe211cdeecb41c47c88fb8e71ecc98196976a1c596cb563427004c02297b838"
 
-	fulcioCert = `-----BEGIN CERTIFICATE-----
-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
------END CERTIFICATE-----
-`
-	rekorPublicKey = `-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkv2fy2jJU+j8G2YeHkIUo+QRxnbG
-09agOlsJ0yGUkNIVC1rBZjxVJp1JwcEiltd5TnQZvgbA89ceC+uTDaILWQ==
------END PUBLIC KEY-----
-`
 	// This is the Rekor LogID constructed from above public key.
 	rekorLogID = "0b2d9e709031929627f2b11ca95e033288e7f47d19284d184ce09f38a91ec35e"
-
-	tsaCertChain = `-----BEGIN CERTIFICATE-----
-MIIBzDCCAXKgAwIBAgIUZUPH+OO1avjh6yXuC5ULzb1+k2UwCgYIKoZIzj0EAwIw
-MDEOMAwGA1UEChMFbG9jYWwxHjAcBgNVBAMTFVRlc3QgVFNBIEludGVybWVkaWF0
-ZTAeFw0yMzEyMTQxODQ5MTdaFw0zMjEyMTQxODUyMTdaMDAxDjAMBgNVBAoTBWxv
-Y2FsMR4wHAYDVQQDExVUZXN0IFRTQSBUaW1lc3RhbXBpbmcwWTATBgcqhkjOPQIB
-BggqhkjOPQMBBwNCAAR993Thn59aej2hIsxermMDZtkWPGiI/Mpt8832Aai09hpe
-t0eAxZs63YZxpsaxe8dyPFRGPybqhcnS2ZCuDZBio2owaDAOBgNVHQ8BAf8EBAMC
-B4AwHQYDVR0OBBYEFLVrD1+j0NPcLasvTR8dK7XKHBODMB8GA1UdIwQYMBaAFPFk
-kA4uYP9CJQquNfmYzOoevKF7MBYGA1UdJQEB/wQMMAoGCCsGAQUFBwMIMAoGCCqG
-SM49BAMCA0gAMEUCIHGg+5vmjV8IVjF1YozA6T1/BfSvrzLdnYTzKcFifqt6AiEA
-9wcCu+WOvXKjDHs2zBg+TMT7qXpAlBkOnnMm4yAGMSs=
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIB0jCCAXigAwIBAgIURSspcypzjzFrHLwUtNszm0BP+/YwCgYIKoZIzj0EAwIw
-KDEOMAwGA1UEChMFbG9jYWwxFjAUBgNVBAMTDVRlc3QgVFNBIFJvb3QwHhcNMjMx
-MjE0MTg0NzE3WhcNMzMxMjE0MTg1MjE3WjAwMQ4wDAYDVQQKEwVsb2NhbDEeMBwG
-A1UEAxMVVGVzdCBUU0EgSW50ZXJtZWRpYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0D
-AQcDQgAEr64R6A+yPiaGiy8415wiNR2O+stQRBV6lZd4CRj3X1TRscubloPg8rqC
-hI+rkKxZcorUcbttY8czAX2dfbKTF6N4MHYwDgYDVR0PAQH/BAQDAgEGMBMGA1Ud
-JQQMMAoGCCsGAQUFBwMIMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFPFkkA4u
-YP9CJQquNfmYzOoevKF7MB8GA1UdIwQYMBaAFKvIdE0MNqeYCWwwXRgRSTZXUTEN
-MAoGCCqGSM49BAMCA0gAMEUCIQD8GIA7qFSNDydORnYXXIwrJ5uO32FSaW0qcHMb
-WOlolwIgb2kn+VSg4BmcKbmCgHeuFbTwFUqU6eFqfhBh8nvmtsA=
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIIBlTCCATqgAwIBAgIUTKlhisZwtRxym+KutMpP3tucKkQwCgYIKoZIzj0EAwIw
-KDEOMAwGA1UEChMFbG9jYWwxFjAUBgNVBAMTDVRlc3QgVFNBIFJvb3QwHhcNMjMx
-MjE0MTg0NzE3WhcNMzMxMjE0MTg1MjE3WjAoMQ4wDAYDVQQKEwVsb2NhbDEWMBQG
-A1UEAxMNVGVzdCBUU0EgUm9vdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABA8X
-+xFvyn5ErnM2ChAN4iF9h/RUhjsB97jyWStGt3UdjytbmOo6j6h9XNV0+txX5Bjy
-zkUl2IXJQ0pum6IoRECjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTAD
-AQH/MB0GA1UdDgQWBBSryHRNDDanmAlsMF0YEUk2V1ExDTAKBggqhkjOPQQDAgNJ
-ADBGAiEAvjuFxcqrLptUj7oBl69g8lc/6xsb3rD5Yb6sr/3izHMCIQDJuZQFmoxe
-hw3P1+pEhW1KFW0aig+q9lK0xNcidCTcxA==
------END CERTIFICATE-----
-`
-
-	// This is the marshalled entry from above keys/certs with fixed values
-	// (for ease of testing) for other parts.
-	marshalledEntry = `{"tlogs":[{"baseUrl":"https://rekor.example.com","hashAlgorithm":"SHA2_256","publicKey":{"rawBytes":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkv2fy2jJU+j8G2YeHkIUo+QRxnbG09agOlsJ0yGUkNIVC1rBZjxVJp1JwcEiltd5TnQZvgbA89ceC+uTDaILWQ=="},"logId":{"keyId":"MGIyZDllNzA5MDMxOTI5NjI3ZjJiMTFjYTk1ZTAzMzI4OGU3ZjQ3ZDE5Mjg0ZDE4NGNlMDlmMzhhOTFlYzM1ZQ=="}}],"certificateAuthorities":[{"subject":{"organization":"fulcio-organization","commonName":"fulcio-common-name"},"uri":"https://fulcio.example.com","certChain":{"certificates":[{"rawBytes":"MIIFwzCCA6ugAwIBAgIIfUmh4cIZr8QwDQYJKoZIhvcNAQELBQAwfjEMMAoGA1UEBhMDVVNBMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRYwFAYDVQQJEw01NDggTWFya2V0IFN0MQ4wDAYDVQQREwU1NzI3NDEZMBcGA1UEChMQTGludXggRm91bmRhdGlvbjAeFw0yMzEyMTQxODUxMzlaFw0yNDEyMTQxODUxMzlaMH4xDDAKBgNVBAYTA1VTQTETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNU2FuIEZyYW5jaXNjbzEWMBQGA1UECRMNNTQ4IE1hcmtldCBTdDEOMAwGA1UEERMFNTcyNzQxGTAXBgNVBAoTEExpbnV4IEZvdW5kYXRpb24wggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDHVwB8bv84fUgVOqjjWtMAK4i5Zl93I9aizh9S/qIuJNnKx1tA87xZcAuO5riq/kXA2fZGnnP4Vsp9VaVjK9o7+1QP2rFJ4p5rrQlZFovvrD1e6jEaoMc06v+YY4yl37b17W9sfd+5x5wZ0ArRjPAihpdVjYJwlqDRB0AlSo6Vq/aM9QejMG4CS1jXrEEUV8MwRNjyT2xdR4vkc6wj47A1/rknjCtMsieSeSmH/ZDamUGuUh5ej4/dmCiLw93Rou/yLlDcvAcFVzrrLMF/lRwUDUgoH1XDlpeCC1r5HB6jp1Huap9gcLNS3UCIZVpNDO0A3pjYaLBQ3bfHe6QxKuQcEd+VKqyP9SoPdNn31cygF28VR+k+0jU5uXxW7ilXrv7DVYMOcMNZCDA0BQdH/A3fO0ri+8t2Luo+EilRWROBsJTuC28sesYc5NUUoszxVUoQFAhkxE6k5rGIzxO8XplgLjx0IPxU0wjjVhcBa7AKkAMT7gDrPXijhJbv7Q3QVkChOdj6VTPagCS+JtWBkzGvCNJmaIrbLdWFTtDMXfSSZoRyn/aXjQr/OFzBf6dDxJqEMvdD5T5Gg1sldZ00KLKqEx25i8HVZ8XoV4jrZOH1b9nZa3DGZOPmditlqUppvJ7c6OIGqkpE1o8mcNKko/p0dCwcHQtXgIN576foyNG+twIDAQABo0UwQzAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBATAdBgNVHQ4EFgQU6A9czPqMog/PFdvjxH3V/56BBhcwDQYJKoZIhvcNAQELBQADggIBAAGqm7dJS+pNgCEUDE79S2r6c+BcH6DwTFvAujE0yvdTRdAVIo73CsqPW4cDFuCw2ekOhD17JUT+9PEGJv++u16X4tLHVI5QHPleU/qzZHSEIYt0AE+y9JELR2RT0g11YToGzhIAto5OpOvBb1z+Q8uP5g4eK7Y8J2lVRkDk/62EtsaHTWgv9hJJqsdwoUMVWxn/s0oanPjyGBMSwpoFDXX/k14NDsCGp7d2e5/DxjgYAenDTtnID3VKkvP46spBZ4yEbNIywjaubSXnNLsx2cY8Ypih23e8c1uQJ3O44FDYXVcqYZX9UOrKHS0aE5VpU5J/j2fr4hGE3SfRXXDizcZJcVWPL+k1DHKWlCREMYw12ha3Oe0uIlwKW7syTNnn8NgxxRgM4f83n0C/00CSqiTm8MYya3ue0m2gmCg6TguALbcIqZ3tEK3KvvNIbgxM0ZSePI8YktvtLTQsRK8bbianOht+CwYD2NnFKo68G0l57ByKXze0wG18i943+NTOvU/Le+8SEwJ4asRld3v3L8pCpNAM7JX12zoqisAnCCj3hu6waA5XvMehSTj8yYtIxP1l1I1qfRJzMB9nGv9KzwmozHiw3oGJr/G3j1u1krrQfj4S6z16Bq29nfILFnmk/MoeqYS6DBRY80b60289+R7CSCB5OQbQYvmjy/sxvcNO"}]}}],"ctlogs":[{"baseUrl":"https://ctfe.example.com","hashAlgorithm":"SHA2_256","publicKey":{"rawBytes":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvffI/l54rF7zt3/3BfNoX1twzqH77upU19F2Y+wuGoa2VcDZs2K98Q+gro8Ed8mAqA2zTTtHezAoi2oAueg78Q=="},"logId":{"keyId":"YmJlMjExY2RlZWNiNDFjNDdjODhmYjhlNzFlY2M5ODE5Njk3NmExYzU5NmNiNTYzNDI3MDA0YzAyMjk3YjgzOA=="}}],"timestampAuthorities":[{"subject":{"organization":"tsa-organization","commonName":"tsa-common-name"},"uri":"https://tsa.example.com","certChain":{"certificates":[{"rawBytes":"MIIBzDCCAXKgAwIBAgIUZUPH+OO1avjh6yXuC5ULzb1+k2UwCgYIKoZIzj0EAwIwMDEOMAwGA1UEChMFbG9jYWwxHjAcBgNVBAMTFVRlc3QgVFNBIEludGVybWVkaWF0ZTAeFw0yMzEyMTQxODQ5MTdaFw0zMjEyMTQxODUyMTdaMDAxDjAMBgNVBAoTBWxvY2FsMR4wHAYDVQQDExVUZXN0IFRTQSBUaW1lc3RhbXBpbmcwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAR993Thn59aej2hIsxermMDZtkWPGiI/Mpt8832Aai09hpet0eAxZs63YZxpsaxe8dyPFRGPybqhcnS2ZCuDZBio2owaDAOBgNVHQ8BAf8EBAMCB4AwHQYDVR0OBBYEFLVrD1+j0NPcLasvTR8dK7XKHBODMB8GA1UdIwQYMBaAFPFkkA4uYP9CJQquNfmYzOoevKF7MBYGA1UdJQEB/wQMMAoGCCsGAQUFBwMIMAoGCCqGSM49BAMCA0gAMEUCIHGg+5vmjV8IVjF1YozA6T1/BfSvrzLdnYTzKcFifqt6AiEA9wcCu+WOvXKjDHs2zBg+TMT7qXpAlBkOnnMm4yAGMSs="},{"rawBytes":"MIIB0jCCAXigAwIBAgIURSspcypzjzFrHLwUtNszm0BP+/YwCgYIKoZIzj0EAwIwKDEOMAwGA1UEChMFbG9jYWwxFjAUBgNVBAMTDVRlc3QgVFNBIFJvb3QwHhcNMjMxMjE0MTg0NzE3WhcNMzMxMjE0MTg1MjE3WjAwMQ4wDAYDVQQKEwVsb2NhbDEeMBwGA1UEAxMVVGVzdCBUU0EgSW50ZXJtZWRpYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEr64R6A+yPiaGiy8415wiNR2O+stQRBV6lZd4CRj3X1TRscubloPg8rqChI+rkKxZcorUcbttY8czAX2dfbKTF6N4MHYwDgYDVR0PAQH/BAQDAgEGMBMGA1UdJQQMMAoGCCsGAQUFBwMIMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFPFkkA4uYP9CJQquNfmYzOoevKF7MB8GA1UdIwQYMBaAFKvIdE0MNqeYCWwwXRgRSTZXUTENMAoGCCqGSM49BAMCA0gAMEUCIQD8GIA7qFSNDydORnYXXIwrJ5uO32FSaW0qcHMbWOlolwIgb2kn+VSg4BmcKbmCgHeuFbTwFUqU6eFqfhBh8nvmtsA="},{"rawBytes":"MIIBlTCCATqgAwIBAgIUTKlhisZwtRxym+KutMpP3tucKkQwCgYIKoZIzj0EAwIwKDEOMAwGA1UEChMFbG9jYWwxFjAUBgNVBAMTDVRlc3QgVFNBIFJvb3QwHhcNMjMxMjE0MTg0NzE3WhcNMzMxMjE0MTg1MjE3WjAoMQ4wDAYDVQQKEwVsb2NhbDEWMBQGA1UEAxMNVGVzdCBUU0EgUm9vdDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABA8X+xFvyn5ErnM2ChAN4iF9h/RUhjsB97jyWStGt3UdjytbmOo6j6h9XNV0+txX5BjyzkUl2IXJQ0pum6IoRECjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSryHRNDDanmAlsMF0YEUk2V1ExDTAKBggqhkjOPQQDAgNJADBGAiEAvjuFxcqrLptUj7oBl69g8lc/6xsb3rD5Yb6sr/3izHMCIQDJuZQFmoxehw3P1+pEhW1KFW0aig+q9lK0xNcidCTcxA=="}]}}]}`
 
 	// validRepository is a valid tar/gzipped repository representing an air-gap
 	// TUF repository.
@@ -216,27 +128,11 @@ hw3P1+pEhW1KFW0aig+q9lK0xNcidCTcxA==
 	`
 	*/
 
-	// this is the marshalled entry for when we construct from the repository.
-	marshalledEntryFromMirrorFS = `{"tlogs":[{"publicKey":{"rawBytes":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEkv2fy2jJU+j8G2YeHkIUo+QRxnbG09agOlsJ0yGUkNIVC1rBZjxVJp1JwcEiltd5TnQZvgbA89ceC+uTDaILWQ=="},"logId":{"keyId":"MGIyZDllNzA5MDMxOTI5NjI3ZjJiMTFjYTk1ZTAzMzI4OGU3ZjQ3ZDE5Mjg0ZDE4NGNlMDlmMzhhOTFlYzM1ZQ=="}}],"certificateAuthorities":[{"certChain":{"certificates":[{"rawBytes":"MIIFwzCCA6ugAwIBAgIIfUmh4cIZr8QwDQYJKoZIhvcNAQELBQAwfjEMMAoGA1UEBhMDVVNBMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1TYW4gRnJhbmNpc2NvMRYwFAYDVQQJEw01NDggTWFya2V0IFN0MQ4wDAYDVQQREwU1NzI3NDEZMBcGA1UEChMQTGludXggRm91bmRhdGlvbjAeFw0yMzEyMTQxODUxMzlaFw0yNDEyMTQxODUxMzlaMH4xDDAKBgNVBAYTA1VTQTETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNU2FuIEZyYW5jaXNjbzEWMBQGA1UECRMNNTQ4IE1hcmtldCBTdDEOMAwGA1UEERMFNTcyNzQxGTAXBgNVBAoTEExpbnV4IEZvdW5kYXRpb24wggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIKAoICAQDHVwB8bv84fUgVOqjjWtMAK4i5Zl93I9aizh9S/qIuJNnKx1tA87xZcAuO5riq/kXA2fZGnnP4Vsp9VaVjK9o7+1QP2rFJ4p5rrQlZFovvrD1e6jEaoMc06v+YY4yl37b17W9sfd+5x5wZ0ArRjPAihpdVjYJwlqDRB0AlSo6Vq/aM9QejMG4CS1jXrEEUV8MwRNjyT2xdR4vkc6wj47A1/rknjCtMsieSeSmH/ZDamUGuUh5ej4/dmCiLw93Rou/yLlDcvAcFVzrrLMF/lRwUDUgoH1XDlpeCC1r5HB6jp1Huap9gcLNS3UCIZVpNDO0A3pjYaLBQ3bfHe6QxKuQcEd+VKqyP9SoPdNn31cygF28VR+k+0jU5uXxW7ilXrv7DVYMOcMNZCDA0BQdH/A3fO0ri+8t2Luo+EilRWROBsJTuC28sesYc5NUUoszxVUoQFAhkxE6k5rGIzxO8XplgLjx0IPxU0wjjVhcBa7AKkAMT7gDrPXijhJbv7Q3QVkChOdj6VTPagCS+JtWBkzGvCNJmaIrbLdWFTtDMXfSSZoRyn/aXjQr/OFzBf6dDxJqEMvdD5T5Gg1sldZ00KLKqEx25i8HVZ8XoV4jrZOH1b9nZa3DGZOPmditlqUppvJ7c6OIGqkpE1o8mcNKko/p0dCwcHQtXgIN576foyNG+twIDAQABo0UwQzAOBgNVHQ8BAf8EBAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBATAdBgNVHQ4EFgQU6A9czPqMog/PFdvjxH3V/56BBhcwDQYJKoZIhvcNAQELBQADggIBAAGqm7dJS+pNgCEUDE79S2r6c+BcH6DwTFvAujE0yvdTRdAVIo73CsqPW4cDFuCw2ekOhD17JUT+9PEGJv++u16X4tLHVI5QHPleU/qzZHSEIYt0AE+y9JELR2RT0g11YToGzhIAto5OpOvBb1z+Q8uP5g4eK7Y8J2lVRkDk/62EtsaHTWgv9hJJqsdwoUMVWxn/s0oanPjyGBMSwpoFDXX/k14NDsCGp7d2e5/DxjgYAenDTtnID3VKkvP46spBZ4yEbNIywjaubSXnNLsx2cY8Ypih23e8c1uQJ3O44FDYXVcqYZX9UOrKHS0aE5VpU5J/j2fr4hGE3SfRXXDizcZJcVWPL+k1DHKWlCREMYw12ha3Oe0uIlwKW7syTNnn8NgxxRgM4f83n0C/00CSqiTm8MYya3ue0m2gmCg6TguALbcIqZ3tEK3KvvNIbgxM0ZSePI8YktvtLTQsRK8bbianOht+CwYD2NnFKo68G0l57ByKXze0wG18i943+NTOvU/Le+8SEwJ4asRld3v3L8pCpNAM7JX12zoqisAnCCj3hu6waA5XvMehSTj8yYtIxP1l1I1qfRJzMB9nGv9KzwmozHiw3oGJr/G3j1u1krrQfj4S6z16Bq29nfILFnmk/MoeqYS6DBRY80b60289+R7CSCB5OQbQYvmjy/sxvcNO"}]}}],"ctlogs":[{"publicKey":{"rawBytes":"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvffI/l54rF7zt3/3BfNoX1twzqH77upU19F2Y+wuGoa2VcDZs2K98Q+gro8Ed8mAqA2zTTtHezAoi2oAueg78Q=="},"logId":{"keyId":"YmJlMjExY2RlZWNiNDFjNDdjODhmYjhlNzFlY2M5ODE5Njk3NmExYzU5NmNiNTYzNDI3MDA0YzAyMjk3YjgzOA=="}}]}`
-
 	// Just some formatting strings that make it easier to construct patches
 	// to config map.
 	replacePatchFmtString = `[{"op":"replace","path":"/data/%s","value":"%s"}]`
 	removePatchFmtString  = `[{"op":"remove","path":"/data/%s"}]`
 )
-
-// testmap with prepopulated (grabbed from an instance of scaffolding) entries
-// for creating TrustRoot resource.
-// ctfe   => CTLog Public Key
-// fulcio => CertificateAuthority certificate
-// rekor  => TLog PublicKey
-// tsa    => TimeStampAuthorities certificate chain (root, intermediate, leaf)
-var sigstoreKeys = map[string]string{
-	"ctfe":   ctfePublicKey,
-	"fulcio": fulcioCert,
-	"rekor":  rekorPublicKey,
-	"tsa":    tsaCertChain,
-}
 
 // canonicalizeSigstoreKeys round-trips the SigstoreKeys through protojson so
 // the output is deterministic for the current test run. This is necessary
@@ -294,7 +190,7 @@ func TestReconcile(t *testing.T) {
 			NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 			)},
 		WantCreates: []runtime.Object{
 			makeConfigMapWithSigstoreKeys(),
@@ -309,7 +205,7 @@ func TestReconcile(t *testing.T) {
 			Object: NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				MarkReadyTrustRoot,
 			)}},
 	}, {
@@ -321,7 +217,7 @@ func TestReconcile(t *testing.T) {
 			NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 			),
 			makeConfigMapWithSigstoreKeys(),
 		},
@@ -335,7 +231,7 @@ func TestReconcile(t *testing.T) {
 			Object: NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				MarkReadyTrustRoot,
 			)}},
 	}, {
@@ -347,19 +243,19 @@ func TestReconcile(t *testing.T) {
 			NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				WithTrustRootFinalizer,
 			),
 			makeDifferentConfigMap(),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			makePatch(replacePatchFmtString, trName, canonicalizeSigstoreKeys(marshalledEntry)),
+			makePatch(replacePatchFmtString, trName, canonicalizeSigstoreKeys(testdata.MarshalledEntry)),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				WithTrustRootFinalizer,
 				MarkReadyTrustRoot,
 			)}},
@@ -372,13 +268,13 @@ func TestReconcile(t *testing.T) {
 			NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				WithTrustRootFinalizer,
 			),
 			makeDifferentConfigMap(),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
-			makePatch(replacePatchFmtString, trName, canonicalizeSigstoreKeys(marshalledEntry)),
+			makePatch(replacePatchFmtString, trName, canonicalizeSigstoreKeys(testdata.MarshalledEntry)),
 		},
 		WithReactors: []clientgotesting.ReactionFunc{
 			InduceFailure("patch", "configmaps"),
@@ -391,7 +287,7 @@ func TestReconcile(t *testing.T) {
 			Object: NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				WithTrustRootFinalizer,
 				WithInitConditionsTrustRoot,
 				WithObservedGenerationTrustRoot(1),
@@ -407,13 +303,13 @@ func TestReconcile(t *testing.T) {
 			NewTrustRoot(trName,
 				WithTrustRootUID(uid),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				WithTrustRootFinalizer,
 			),
 			NewTrustRoot(tkName2,
 				WithTrustRootUID(uid2),
 				WithTrustRootResourceVersion(resourceVersion),
-				WithSigstoreKeys(sigstoreKeys),
+				WithSigstoreKeys(testdata.SigstoreKeys),
 				WithTrustRootFinalizer,
 				WithTrustRootDeletionTimestamp,
 			),
@@ -477,7 +373,7 @@ func makeConfigMapWithSigstoreKeys() *corev1.ConfigMap {
 		},
 		Data: make(map[string]string),
 	}
-	source := NewTrustRoot(trName, WithSigstoreKeys(sigstoreKeys))
+	source := NewTrustRoot(trName, WithSigstoreKeys(testdata.SigstoreKeys))
 	c := config.ConvertSigstoreKeys(context.Background(), source.Spec.SigstoreKeys)
 	for i := range c.Tlogs {
 		c.Tlogs[i].LogId = &config.LogId{KeyId: []byte(rekorLogID)}
@@ -500,7 +396,7 @@ func makeConfigMapWithMirrorFS() *corev1.ConfigMap {
 			Namespace: system.Namespace(),
 			Name:      config.SigstoreKeysConfigName,
 		},
-		Data: map[string]string{"test-trustroot": canonicalizeSigstoreKeys(marshalledEntryFromMirrorFS)},
+		Data: map[string]string{"test-trustroot": canonicalizeSigstoreKeys(testdata.MarshalledEntryFromMirrorFS)},
 	}
 }
 
@@ -527,7 +423,7 @@ func makeConfigMapWithTwoEntries() *corev1.ConfigMap {
 			Name:      config.SigstoreKeysConfigName,
 		},
 		Data: map[string]string{
-			trName:  canonicalizeSigstoreKeys(marshalledEntry),
+			trName:  canonicalizeSigstoreKeys(testdata.MarshalledEntry),
 			tkName2: "remove me please",
 		},
 	}
