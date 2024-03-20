@@ -377,7 +377,6 @@ func makeConfigMapWithSigstoreKeys() *corev1.ConfigMap {
 	c := config.ConvertSigstoreKeys(context.Background(), source.Spec.SigstoreKeys)
 	for i := range c.Tlogs {
 		c.Tlogs[i].LogId = &config.LogId{KeyId: []byte(rekorLogID)}
-
 	}
 	for i := range c.Ctlogs {
 		c.Ctlogs[i].LogId = &config.LogId{KeyId: []byte(ctfeLogID)}
