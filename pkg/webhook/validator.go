@@ -58,6 +58,7 @@ import (
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 
+	sgroot "github.com/sigstore/sigstore-go/pkg/root"
 	sgverify "github.com/sigstore/sigstore-go/pkg/verify"
 )
 
@@ -986,10 +987,16 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		remoteOpts = append(remoteOpts, remoteOpts...)
 	}
 
-	_ = ctx // TODO: Use context for verifier when it lands in sigstore-go
-	trustedRoot, err := verify.TrustedRootGithubStaging()
-	if err != nil {
-		return nil, err
+	var trustedMaterial sgroot.TrustedMaterial
+
+	trustRoot, err := sigstoreKeysFromContext(ctx, authority.Keyless.TrustRootRef)
+	if pbTrustedRoot, ok := trustRoot.SigstoreKeys[authority.Keyless.TrustRootRef]; ok {
+		trustedMaterial, err = sgroot.NewTrustedRootFromProtobuf(pbTrustedRoot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse trusted root from protobuf: %w", err)
+		}
+	} else {
+		return nil, fmt.Errorf("failed to find trusted root \"%s\"", authority.Keyless.TrustRootRef)
 	}
 
 	if authority.Keyless.Identities == nil {
@@ -1003,7 +1010,7 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		return nil, err
 	}
 
-	bundle, result, err := verify.AttestationBundle(ref, trustedRoot, remoteOpts, sgverify.WithCertificateIdentity(certID))
+	bundle, result, err := verify.AttestationBundle(ref, trustedMaterial, remoteOpts, sgverify.WithCertificateIdentity(certID))
 	if err != nil {
 		return nil, err
 	}
