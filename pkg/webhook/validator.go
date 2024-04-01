@@ -977,6 +977,15 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 }
 
 func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref name.Reference, authority webhookcip.Authority, kc authn.Keychain) (map[string][]PolicyAttestation, error) {
+	remoteOpts := []remote.Option{
+		remote.WithContext(ctx),
+		remote.WithAuthFromKeychain(kc),
+	}
+	// TODO: Apply authority.Source options (Tag prefix, alternative registry, and signature pull secrets)
+	if len(remoteOpts) > 0 {
+		remoteOpts = append(remoteOpts, remoteOpts...)
+	}
+
 	_ = ctx // TODO: Use context for verifier when it lands in sigstore-go
 	trustedRoot, err := verify.TrustedRootGithubStaging()
 	if err != nil {
@@ -994,7 +1003,7 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		return nil, err
 	}
 
-	bundle, result, err := verify.AttestationBundle(ref, trustedRoot, kc, sgverify.WithCertificateIdentity(certID))
+	bundle, result, err := verify.AttestationBundle(ref, trustedRoot, remoteOpts, sgverify.WithCertificateIdentity(certID))
 	if err != nil {
 		return nil, err
 	}

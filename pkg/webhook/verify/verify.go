@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -26,8 +25,8 @@ func TrustedRootGithubStaging() (root.TrustedMaterial, error) {
 	return root.NewTrustedRootFromJSON(trustedRootGithubStaging)
 }
 
-func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial, kc authn.Keychain, policyOption verify.PolicyOption) (*bundle.ProtobufBundle, *verify.VerificationResult, error) {
-	b, imageDigest, err := getBundle(ref, kc)
+func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOption verify.PolicyOption) (*bundle.ProtobufBundle, *verify.VerificationResult, error) {
+	b, imageDigest, err := getBundle(ref, remoteOpts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -56,15 +55,15 @@ func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial,
 	return b, result, nil
 }
 
-func getBundle(ref name.Reference, kc authn.Keychain) (*bundle.ProtobufBundle, *v1.Hash, error) {
-	desc, err := remote.Get(ref, remote.WithAuthFromKeychain(kc))
+func getBundle(ref name.Reference, remoteOpts []remote.Option) (*bundle.ProtobufBundle, *v1.Hash, error) {
+	desc, err := remote.Get(ref, remoteOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting image descriptor: %w", err)
 	}
 
 	digest := ref.Context().Digest(desc.Digest.String())
 
-	referrers, err := remote.Referrers(digest, remote.WithAuthFromKeychain(kc))
+	referrers, err := remote.Referrers(digest, remoteOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting referrers: %w", err)
 	}
@@ -79,7 +78,7 @@ func getBundle(ref name.Reference, kc authn.Keychain) (*bundle.ProtobufBundle, *
 			continue
 		}
 
-		refImg, err := remote.Image(ref.Context().Digest(refDesc.Digest.String()), remote.WithAuthFromKeychain(kc))
+		refImg, err := remote.Image(ref.Context().Digest(refDesc.Digest.String()), remoteOpts...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting referrer image: %w", err)
 		}
