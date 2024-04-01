@@ -10,20 +10,10 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
-	_ "embed"
-
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
-
-//go:embed trusted-root-github-staging.json
-var trustedRootGithubStaging []byte
-
-// TODO: Replace with TUF from TrustRoot CRD when TUF client is updated to support TrustedRoot files.
-func TrustedRootGithubStaging() (root.TrustedMaterial, error) {
-	return root.NewTrustedRootFromJSON(trustedRootGithubStaging)
-}
 
 func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOption verify.PolicyOption) (*bundle.ProtobufBundle, *verify.VerificationResult, error) {
 	b, imageDigest, err := getBundle(ref, remoteOpts)
