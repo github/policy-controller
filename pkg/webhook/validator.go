@@ -527,12 +527,7 @@ func ValidatePolicy(ctx context.Context, namespace string, ref name.Reference, c
 				result.static = true
 
 			case len(authority.Attestations) > 0:
-				// To support bundle verification, we need to decide when to invoke the
-				// bundle verifier. For now, we just use the bundle verifier if the
-				// authority name is "github", otherwise we use the regular verifier.
-				// TODO: Add option to ClusterImagePolicy to allow user to specify which
-				// verifier to use.
-				if authority.Keyless != nil && authority.Keyless.TrustRootRef == "github" {
+				if authority.SignatureFormat == "bundle" {
 					result.attestations, result.err = ValidatePolicyAttestationsForAuthorityWithBundle(ctx, ref, authority, kc)
 				} else {
 					// We're doing the verify-attestations path, so validate (.att)
@@ -990,6 +985,9 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 	var trustedMaterial sgroot.TrustedMaterial
 
 	trustRoot, err := sigstoreKeysFromContext(ctx, authority.Keyless.TrustRootRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trusted root from context: %w", err)
+	}
 	if pbTrustedRoot, ok := trustRoot.SigstoreKeys[authority.Keyless.TrustRootRef]; ok {
 		trustedMaterial, err = sgroot.NewTrustedRootFromProtobuf(pbTrustedRoot)
 		if err != nil {
@@ -1066,7 +1064,7 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		}
 	}
 
-	return nil, nil
+	return ret, nil
 }
 
 // ResolvePodScalable implements policyduckv1beta1.PodScalableValidator

@@ -85,6 +85,8 @@ type Authority struct {
 	Attestations []AttestationPolicy `json:"attestations,omitempty"`
 	// +optional
 	RFC3161Timestamp *RFC3161Timestamp `json:"rfc3161timestamp,omitempty"`
+	// +optional
+	SignatureFormat string `json:"signatureFormat,omitempty"`
 }
 
 // This references a public verification key stored in
@@ -324,6 +326,7 @@ func convertAuthorityV1Alpha1ToWebhook(in v1alpha1.Authority) *Authority {
 		CTLog:            in.CTLog,
 		RFC3161Timestamp: rfc3161Timestamp,
 		Attestations:     attestations,
+		SignatureFormat:  in.SignatureFormat,
 	}
 }
 
