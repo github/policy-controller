@@ -1020,9 +1020,6 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 
 	// sha256 of statement
 	statementDigest := sha256.Sum256(statementBytes)
-	if err != nil {
-		return nil, err
-	}
 
 	// TODO: generate "signature ID" from the signature?
 	sig := string(bundle.GetDsseEnvelope().Signatures[0].Sig)
