@@ -15,7 +15,7 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
-func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOption verify.PolicyOption) (*bundle.ProtobufBundle, *verify.VerificationResult, error) {
+func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) (*bundle.ProtobufBundle, *verify.VerificationResult, error) {
 	b, imageDigest, err := getBundle(ref, remoteOpts)
 	if err != nil {
 		return nil, nil, err
@@ -38,7 +38,7 @@ func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial,
 	}
 	artifactPolicy = verify.WithArtifactDigest(imageDigest.Algorithm, digestBytes)
 
-	result, err := sev.Verify(b, verify.NewPolicy(artifactPolicy, policyOption))
+	result, err := sev.Verify(b, verify.NewPolicy(artifactPolicy, policyOptions...))
 	if err != nil {
 		return nil, nil, err
 	}

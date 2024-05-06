@@ -1001,15 +1001,20 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		return nil, errors.New("must specify at least one identity for keyless authority")
 	}
 
-	// TODO: support more than one identity
-	id := authority.Keyless.Identities[0]
-	certID, err := sgverify.NewShortCertificateIdentity(id.Issuer, id.Subject, "", id.SubjectRegExp)
-	if err != nil {
-		return nil, err
+	policyOptions := make([]sgverify.PolicyOption, 0, len(authority.Keyless.Identities))
+	for _, id := range authority.Keyless.Identities {
+		// The sanType s intentionally left blank, as there is currently no means
+		// to specify it in the policy, and its absence means it will just not
+		// verify the type.
+		id, err := sgverify.NewShortCertificateIdentity(id.Issuer, id.Subject, "", id.SubjectRegExp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create certificate identity: %w", err)
+		}
+		policyOptions = append(policyOptions, sgverify.WithCertificateIdentity(id))
 	}
 
 	// TODO: return multiple bundles (if exist) and check policy against all of them
-	bundle, result, err := verify.AttestationBundle(ref, trustedMaterial, remoteOpts, sgverify.WithCertificateIdentity(certID))
+	bundle, result, err := verify.AttestationBundle(ref, trustedMaterial, remoteOpts, policyOptions)
 	if err != nil {
 		return nil, err
 	}
