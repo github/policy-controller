@@ -1003,7 +1003,7 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 
 	policyOptions := make([]sgverify.PolicyOption, 0, len(authority.Keyless.Identities))
 	for _, id := range authority.Keyless.Identities {
-		// The sanType s intentionally left blank, as there is currently no means
+		// The sanType is intentionally left blank, as there is currently no means
 		// to specify it in the policy, and its absence means it will just not
 		// verify the type.
 		id, err := sgverify.NewShortCertificateIdentity(id.Issuer, id.Subject, "", id.SubjectRegExp)
@@ -1013,11 +1013,18 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		policyOptions = append(policyOptions, sgverify.WithCertificateIdentity(id))
 	}
 
-	// TODO: return multiple bundles (if exist) and check policy against all of them
-	bundle, result, err := verify.AttestationBundle(ref, trustedMaterial, remoteOpts, policyOptions)
+	verifiedBundles, err := verify.AttestationBundles(ref, trustedMaterial, remoteOpts, policyOptions)
 	if err != nil {
 		return nil, err
 	}
+
+	if len(verifiedBundles) == 0 {
+		return nil, errors.New("no verified bundles found")
+	}
+
+	// TODO: loop through all verifiedBundles instead of using just the one
+	bundle := verifiedBundles[0].Bundle
+	result := verifiedBundles[0].Result
 
 	statementBytes, err := json.Marshal(result.Statement)
 	if err != nil {

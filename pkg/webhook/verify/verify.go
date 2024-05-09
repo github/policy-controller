@@ -15,37 +15,42 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
-func AttestationBundle(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) (*bundle.ProtobufBundle, *verify.VerificationResult, error) {
-	b, imageDigest, err := getBundle(ref, remoteOpts)
-	if err != nil {
-		return nil, nil, err
-	}
-	_ = imageDigest
+type VerifiedBundle struct {
+	Bundle *bundle.ProtobufBundle
+	Result *verify.VerificationResult
+}
 
-	verifierConfig := []verify.VerifierOption{}
-	var artifactPolicy verify.ArtifactPolicyOption
-
-	verifierConfig = append(verifierConfig, verify.WithObserverTimestamps(1))
-
+func AttestationBundles(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) ([]VerifiedBundle, error) {
+	verifierConfig := []verify.VerifierOption{verify.WithObserverTimestamps(1)}
 	sev, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierConfig...)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+
+	bundles, imageDigest, err := getBundles(ref, remoteOpts)
+	if err != nil {
+		return nil, err
 	}
 
 	digestBytes, err := hex.DecodeString(imageDigest.Hex)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	artifactPolicy = verify.WithArtifactDigest(imageDigest.Algorithm, digestBytes)
+	artifactPolicy := verify.WithArtifactDigest(imageDigest.Algorithm, digestBytes)
+	policy := verify.NewPolicy(artifactPolicy, policyOptions...)
 
-	result, err := sev.Verify(b, verify.NewPolicy(artifactPolicy, policyOptions...))
-	if err != nil {
-		return nil, nil, err
+	verifiedBundles := make([]VerifiedBundle, 0)
+	for _, b := range bundles {
+		// TODO: should these be done in parallel? (as is done in cosign?)
+		result, err := sev.Verify(b, policy)
+		if err == nil {
+			verifiedBundles = append(verifiedBundles, VerifiedBundle{Bundle: b, Result: result})
+		}
 	}
-	return b, result, nil
+	return verifiedBundles, nil
 }
 
-func getBundle(ref name.Reference, remoteOpts []remote.Option) (*bundle.ProtobufBundle, *v1.Hash, error) {
+func getBundles(ref name.Reference, remoteOpts []remote.Option) ([]*bundle.ProtobufBundle, *v1.Hash, error) {
 	desc, err := remote.Get(ref, remoteOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting image descriptor: %w", err)
@@ -62,7 +67,8 @@ func getBundle(ref name.Reference, remoteOpts []remote.Option) (*bundle.Protobuf
 		return nil, nil, fmt.Errorf("error getting referrers manifest: %w", err)
 	}
 
-	var bundleBytes []byte
+	bundles := make([]*bundle.ProtobufBundle, 0)
+
 	for _, refDesc := range refManifest.Manifests {
 		if !strings.HasPrefix(refDesc.ArtifactType, "application/vnd.dev.sigstore.bundle+json") {
 			continue
@@ -80,18 +86,19 @@ func getBundle(ref name.Reference, remoteOpts []remote.Option) (*bundle.Protobuf
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting referrer image: %w", err)
 		}
-		bundleBytes, err = io.ReadAll(layer0)
+		bundleBytes, err := io.ReadAll(layer0)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting referrer image: %w", err)
 		}
+		b := &bundle.ProtobufBundle{}
+		err = b.UnmarshalJSON(bundleBytes)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error unmarshalling bundle: %w", err)
+		}
+		bundles = append(bundles, b)
 	}
-	if len(refManifest.Manifests) == 0 || len(bundleBytes) == 0 {
+	if len(bundles) == 0 {
 		return nil, nil, fmt.Errorf("no bundle found in referrers")
 	}
-	b := &bundle.ProtobufBundle{}
-	err = b.UnmarshalJSON(bundleBytes)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error unmarshalling bundle: %w", err)
-	}
-	return b, &desc.Digest, nil
+	return bundles, &desc.Digest, nil
 }
