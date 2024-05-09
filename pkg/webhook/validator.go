@@ -1008,6 +1008,7 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		return nil, err
 	}
 
+	// TODO: return multiple bundles (if exist) and check policy against all of them
 	bundle, result, err := verify.AttestationBundle(ref, trustedMaterial, remoteOpts, sgverify.WithCertificateIdentity(certID))
 	if err != nil {
 		return nil, err

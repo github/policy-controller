@@ -745,8 +745,8 @@ github.com/sigstore/scaffolding v0.6.17 h1:60P4/x/PdIj7SjzhEgEDefrnDcHAKzztF/RXd
 github.com/sigstore/scaffolding v0.6.17/go.mod h1:jTrLu0YmR5pfQDBieDpn97GSqAPHBAvgjzk8iUNGVjo=
 github.com/sigstore/sigstore v1.8.3 h1:G7LVXqL+ekgYtYdksBks9B38dPoIsbscjQJX/MGWkA4=
 github.com/sigstore/sigstore v1.8.3/go.mod h1:mqbTEariiGA94cn6G3xnDiV6BD8eSLdL/eA7bvJ0fVs=
-github.com/sigstore/sigstore-go v0.2.0 h1:pbDfn8voPQZCySzCpiDE+3qljzsczHUX26dQsnjH2Cg=
-github.com/sigstore/sigstore-go v0.2.0/go.mod h1:M6iQfFjmK0wbez+lRTg+O7cJxjYa7s++zfW30rzZBKk=
+github.com/sigstore/sigstore-go v0.3.0 h1:SxYqfonBrEhw8bNDelMieymxhdv7R9itiNZmtjOwKKU=
+github.com/sigstore/sigstore-go v0.3.0/go.mod h1:oJOH7UP8aTjAGnIVwq9sDif8M4CSCik84yN1vBuESbE=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.3 h1:LTfPadUAo+PDRUbbdqbeSl2OuoFQwUFTnJ4stu+nwWw=
 github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.3/go.mod h1:QV/Lxlxm0POyhfyBtIbTWxNeF18clMlkkyL9mu45y18=
 github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.3 h1:xgbPRCr2npmmsuVVteJqi/ERw9+I13Wou7kq0Yk4D8g=
@@ -811,8 +811,8 @@ github.com/thales-e-security/pool v0.0.2 h1:RAPs4q2EbWsTit6tpzuvTFlgFRJ3S8Evf5gt
 github.com/thales-e-security/pool v0.0.2/go.mod h1:qtpMm2+thHtqhLzTwgDBj/OuNnMpupY8mv0Phz0gjhU=
 github.com/theupdateframework/go-tuf v0.7.0 h1:CqbQFrWo1ae3/I0UCblSbczevCCbS31Qvs5LdxRWqRI=
 github.com/theupdateframework/go-tuf v0.7.0/go.mod h1:uEB7WSY+7ZIugK6R1hiBMBjQftaFzn7ZCDJcp1tCUug=
-github.com/theupdateframework/go-tuf/v2 v2.0.0-20240207172116-f5cf71290141 h1:SsiWxSpJ9AD71/vqiZVUjXW1Uusv1wlKn4zPKFNq25w=
-github.com/theupdateframework/go-tuf/v2 v2.0.0-20240207172116-f5cf71290141/go.mod h1:D7dcS4bZMmF3pXOgUo8Vs6GLYM9sdrFFd37JqiP3hN4=
+github.com/theupdateframework/go-tuf/v2 v2.0.0-20240223092044-1e7978e83f63 h1:27XWhDZHPD+cufF6qSdYx6PgGQvD2jJ6pq9sDvR6VBk=
+github.com/theupdateframework/go-tuf/v2 v2.0.0-20240223092044-1e7978e83f63/go.mod h1:+gWwqe1pk4nvGeOKosGJqPgD+N/kbD9M0QVLL9TGIYU=
 github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399 h1:e/5i7d4oYZ+C1wj2THlRK+oAhjeS/TRQwMfkIuet3w0=
 github.com/titanous/rocacheck v0.0.0-20171023193734-afe73141d399/go.mod h1:LdwHTNJT99C5fTAzDz0ud328OgXz+gierycbcIx2fRs=
 github.com/tjfoc/gmsm v1.3.2/go.mod h1:HaUcFuY0auTiaHB9MHFGCPx5IaLhTUd2atbCFBQXn9w=
