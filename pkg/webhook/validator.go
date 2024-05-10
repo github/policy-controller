@@ -54,12 +54,11 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
-	"github.com/sigstore/policy-controller/pkg/webhook/verify"
 	kubeclient "knative.dev/pkg/client/injection/kube/client"
 	"knative.dev/pkg/logging"
 
 	sgroot "github.com/sigstore/sigstore-go/pkg/root"
-	sgverify "github.com/sigstore/sigstore-go/pkg/verify"
+	"github.com/sigstore/sigstore-go/pkg/verify"
 )
 
 type Validator struct{}
@@ -1005,19 +1004,19 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		return nil, errors.New("must specify at least one identity for keyless authority")
 	}
 
-	policyOptions := make([]sgverify.PolicyOption, 0, len(authority.Keyless.Identities))
+	policyOptions := make([]verify.PolicyOption, 0, len(authority.Keyless.Identities))
 	for _, id := range authority.Keyless.Identities {
 		// The sanType is intentionally left blank, as there is currently no means
 		// to specify it in the policy, and its absence means it will just not
 		// verify the type.
-		id, err := sgverify.NewShortCertificateIdentity(id.Issuer, id.Subject, "", id.SubjectRegExp)
+		id, err := verify.NewShortCertificateIdentity(id.Issuer, id.Subject, "", id.SubjectRegExp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create certificate identity: %w", err)
 		}
-		policyOptions = append(policyOptions, sgverify.WithCertificateIdentity(id))
+		policyOptions = append(policyOptions, verify.WithCertificateIdentity(id))
 	}
 
-	verifiedBundles, err := verify.AttestationBundles(ref, trustedMaterial, remoteOpts, policyOptions)
+	verifiedBundles, err := AttestationBundles(ref, trustedMaterial, remoteOpts, policyOptions)
 	if err != nil {
 		return nil, err
 	}

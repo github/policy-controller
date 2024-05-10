@@ -1,4 +1,4 @@
-package verify
+package webhook
 
 import (
 	"crypto/x509"
