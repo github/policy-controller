@@ -13,9 +13,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	cbundle "github.com/sigstore/cosign/v2/pkg/cosign/bundle"
-	"github.com/sigstore/cosign/v2/pkg/oci"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -27,35 +24,11 @@ type VerifiedBundle struct {
 	Hash     v1.Hash
 }
 
-// VerifiedBundle implements oci.Signature
-var _ oci.Signature = &VerifiedBundle{}
+// VerifiedBundle implements Signature
+var _ Signature = &VerifiedBundle{}
 
 func (vb *VerifiedBundle) Digest() (v1.Hash, error) {
 	return vb.Hash, nil
-}
-
-func (vb *VerifiedBundle) DiffID() (v1.Hash, error) {
-	panic("implement me")
-}
-
-func (vb *VerifiedBundle) Compressed() (io.ReadCloser, error) {
-	panic("implement me")
-}
-
-func (vb *VerifiedBundle) Uncompressed() (io.ReadCloser, error) {
-	panic("implement me")
-}
-
-func (vb *VerifiedBundle) Size() (int64, error) {
-	panic("implement me")
-}
-
-func (vb *VerifiedBundle) MediaType() (types.MediaType, error) {
-	panic("implement me")
-}
-
-func (vb *VerifiedBundle) Annotations() (map[string]string, error) {
-	panic("implement me")
 }
 
 func (vb *VerifiedBundle) Payload() ([]byte, error) {
@@ -72,10 +45,6 @@ func (vb *VerifiedBundle) Signature() ([]byte, error) {
 	return []byte{}, nil
 }
 
-func (vb *VerifiedBundle) Base64Signature() (string, error) {
-	panic("implement me")
-}
-
 func (vb *VerifiedBundle) Cert() (*x509.Certificate, error) {
 	vc, err := vb.SGBundle.VerificationContent()
 	if err != nil {
@@ -87,19 +56,7 @@ func (vb *VerifiedBundle) Cert() (*x509.Certificate, error) {
 	return nil, errors.New("bundle does not contain a certificate")
 }
 
-func (vb *VerifiedBundle) Chain() ([]*x509.Certificate, error) {
-	panic("implement me")
-}
-
-func (vb *VerifiedBundle) Bundle() (*cbundle.RekorBundle, error) {
-	panic("implement me")
-}
-
-func (vb *VerifiedBundle) RFC3161Timestamp() (*cbundle.RFC3161Timestamp, error) {
-	panic("implement me")
-}
-
-func AttestationBundles(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) ([]oci.Signature, error) {
+func AttestationBundles(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) ([]Signature, error) {
 	verifierConfig := []verify.VerifierOption{verify.WithObserverTimestamps(1)}
 	sev, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierConfig...)
 	if err != nil {
@@ -118,7 +75,7 @@ func AttestationBundles(ref name.Reference, trustedMaterial root.TrustedMaterial
 	artifactPolicy := verify.WithArtifactDigest(hash.Algorithm, digestBytes)
 	policy := verify.NewPolicy(artifactPolicy, policyOptions...)
 
-	verifiedBundles := make([]oci.Signature, 0)
+	verifiedBundles := make([]Signature, 0)
 	for _, b := range bundles {
 		// TODO: should these be done in parallel? (as is done in cosign?)
 		result, err := sev.Verify(b, policy)

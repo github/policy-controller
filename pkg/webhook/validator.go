@@ -35,7 +35,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
-	"github.com/sigstore/cosign/v2/pkg/oci"
 	ociremote "github.com/sigstore/cosign/v2/pkg/oci/remote"
 	"github.com/sigstore/cosign/v2/pkg/policy"
 	"github.com/sigstore/policy-controller/pkg/apis/config"
@@ -60,6 +59,13 @@ import (
 	sgroot "github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
+
+type Signature interface {
+	Digest() (v1.Hash, error)
+	Payload() ([]byte, error)
+	Signature() ([]byte, error)
+	Cert() (*x509.Certificate, error)
+}
 
 type Validator struct{}
 
@@ -645,7 +651,7 @@ func ValidatePolicy(ctx context.Context, namespace string, ref name.Reference, c
 	return policyResult, authorityErrors
 }
 
-func ociSignatureToPolicySignature(ctx context.Context, sigs []oci.Signature) []PolicySignature {
+func ociSignatureToPolicySignature(ctx context.Context, sigs []Signature) []PolicySignature {
 	ret := make([]PolicySignature, 0, len(sigs))
 	for _, ociSig := range sigs {
 		logging.FromContext(ctx).Debugf("Converting signature %+v", ociSig)
@@ -687,7 +693,7 @@ func ociSignatureToPolicySignature(ctx context.Context, sigs []oci.Signature) []
 }
 
 // signatureID creates a unique hash for the Signature, using both the signature itself + the cert.
-func signatureID(sig oci.Signature) (string, error) {
+func signatureID(sig Signature) (string, error) {
 	h := sha256.New()
 	s, err := sig.Signature()
 	if err != nil {
@@ -719,7 +725,7 @@ func signatureID(sig oci.Signature) (string, error) {
 // PolicyAttestations upon completion without needing to refetch any of the
 // parts.
 type attestation struct {
-	oci.Signature
+	Signature
 
 	PredicateType string
 	Payload       []byte
@@ -839,7 +845,7 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 		return nil, fmt.Errorf("creating CheckOpts: %w", err)
 	}
 
-	verifiedAttestations := []oci.Signature{}
+	verifiedAttestations := []Signature{}
 	switch {
 	case authority.Key != nil && len(authority.Key.PublicKeys) > 0:
 		for _, k := range authority.Key.PublicKeys {
@@ -887,7 +893,7 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 	return checkPredicates(ctx, authority, verifiedAttestations)
 }
 
-func checkPredicates(ctx context.Context, authority webhookcip.Authority, verifiedAttestations []oci.Signature) (map[string][]PolicyAttestation, error) {
+func checkPredicates(ctx context.Context, authority webhookcip.Authority, verifiedAttestations []Signature) (map[string][]PolicyAttestation, error) {
 	// Now spin through the Attestations that the user specified and validate
 	// them.
 	// TODO(vaikas): Pretty inefficient here, figure out a better way if
@@ -916,7 +922,7 @@ func checkPredicates(ctx context.Context, authority webhookcip.Authority, verifi
 				logging.FromContext(ctx).Errorf("failed to get the attestation digest for %s: %v", wantedAttestation.Name, err)
 				continue
 			}
-			attBytes, gotPredicateType, err := policy.AttestationToPayloadJSON(ctx, wantedAttestation.PredicateType, va)
+			attBytes, gotPredicateType, err := AttestationToPayloadJSON(ctx, wantedAttestation.PredicateType, va)
 			if gotPredicateType != "" {
 				checkedPredicateTypes[gotPredicateType] = struct{}{}
 			}
