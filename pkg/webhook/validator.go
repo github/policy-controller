@@ -885,6 +885,10 @@ func ValidatePolicyAttestationsForAuthority(ctx context.Context, ref name.Refere
 	}
 	logging.FromContext(ctx).Debugf("Found %d valid attestations, validating policies for them", len(verifiedAttestations))
 
+	return checkPredicates(ctx, authority, verifiedAttestations)
+}
+
+func checkPredicates(ctx context.Context, authority webhookcip.Authority, verifiedAttestations []oci.Signature) (map[string][]PolicyAttestation, error) {
 	// Now spin through the Attestations that the user specified and validate
 	// them.
 	// TODO(vaikas): Pretty inefficient here, figure out a better way if
@@ -1022,59 +1026,7 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		return nil, errors.New("no verified bundles found")
 	}
 
-	// TODO: loop through all verifiedBundles instead of using just the one
-	bundle := verifiedBundles[0].Bundle
-	result := verifiedBundles[0].Result
-
-	statementBytes, err := json.Marshal(result.Statement)
-	if err != nil {
-		return nil, err
-	}
-
-	// sha256 of statement
-	statementDigest := sha256.Sum256(statementBytes)
-
-	// TODO: generate "signature ID" from the signature?
-	sig := string(bundle.GetDsseEnvelope().Signatures[0].Sig)
-
-	ret := make(map[string][]PolicyAttestation, 1)
-	pa := PolicyAttestation{
-		PolicySignature: PolicySignature{
-			ID:      sig,
-			Subject: result.VerifiedIdentity.SubjectAlternativeName.Value,
-			Issuer:  result.VerifiedIdentity.Issuer,
-			GithubExtensions: GithubExtensions{
-				WorkflowTrigger: result.VerifiedIdentity.Extensions.GithubWorkflowTrigger,
-				WorkflowSHA:     result.VerifiedIdentity.Extensions.GithubWorkflowSHA,
-				WorkflowName:    result.VerifiedIdentity.Extensions.GithubWorkflowName,
-				WorkflowRepo:    result.VerifiedIdentity.Extensions.GithubWorkflowRepository,
-				WorkflowRef:     result.VerifiedIdentity.Extensions.GithubWorkflowRef,
-			},
-		},
-		PredicateType: result.Statement.PredicateType,
-		Payload:       statementBytes,
-		Digest:        string(statementDigest[:]),
-	}
-
-	// TODO: support more than one attestation
-	att := authority.Attestations[0]
-	if att.PredicateType != result.Statement.PredicateType {
-		return nil, fmt.Errorf("predicate type mismatch: %s != %s", att.PredicateType, result.Statement.PredicateType)
-	}
-	ret[att.Name] = []PolicyAttestation{pa}
-
-	if att.Type != "" {
-		warn, err := policy.EvaluatePolicyAgainstJSON(ctx, att.Name, att.Type, att.Data, statementBytes)
-		if err != nil || warn != nil {
-			logging.FromContext(ctx).Warnf("failed policy validation for %s: %v", att.Name, err)
-			if err != nil {
-				return nil, err
-			}
-			return nil, warn
-		}
-	}
-
-	return ret, nil
+	return checkPredicates(ctx, authority, verifiedBundles)
 }
 
 // ResolvePodScalable implements policyduckv1beta1.PodScalableValidator
