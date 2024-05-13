@@ -67,6 +67,10 @@ type Signature interface {
 	Cert() (*x509.Certificate, error)
 }
 
+// Assert that Signature implements policy.PayloadProvider (used by
+// policy.AttestationToPayloadJSON)
+var _ policy.PayloadProvider = (Signature)(nil)
+
 type Validator struct{}
 
 func NewValidator(_ context.Context) *Validator {
@@ -922,7 +926,7 @@ func checkPredicates(ctx context.Context, authority webhookcip.Authority, verifi
 				logging.FromContext(ctx).Errorf("failed to get the attestation digest for %s: %v", wantedAttestation.Name, err)
 				continue
 			}
-			attBytes, gotPredicateType, err := AttestationToPayloadJSON(ctx, wantedAttestation.PredicateType, va)
+			attBytes, gotPredicateType, err := policy.AttestationToPayloadJSON(ctx, wantedAttestation.PredicateType, va)
 			if gotPredicateType != "" {
 				checkedPredicateTypes[gotPredicateType] = struct{}{}
 			}

@@ -18,18 +18,12 @@ package webhook
 import (
 	"context"
 	"crypto"
-	"crypto/x509"
 	"encoding/pem"
-	"io"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"knative.dev/pkg/logging"
 
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sigstore/cosign/v2/pkg/cosign"
-	cbundle "github.com/sigstore/cosign/v2/pkg/cosign/bundle"
-	"github.com/sigstore/cosign/v2/pkg/policy"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
@@ -94,70 +88,4 @@ func parsePems(b []byte) []*pem.Block {
 		return append(pems, parsePems(rest)...)
 	}
 	return pems
-}
-
-func AttestationToPayloadJSON(ctx context.Context, predicateType string, sig Signature) ([]byte, string, error) {
-	return policy.AttestationToPayloadJSON(ctx, predicateType, &OCISig{sig})
-}
-
-// This shim type is needed because AttestationToPayloadJSON expects an oci.Signature
-// TODO: Remove once https://github.com/sigstore/cosign/pull/3693 is merged.
-type OCISig struct {
-	Sig Signature
-}
-
-func (s *OCISig) Digest() (v1.Hash, error) {
-	return s.Sig.Digest()
-}
-
-func (s *OCISig) Payload() ([]byte, error) {
-	return s.Sig.Payload()
-}
-
-func (s *OCISig) Signature() ([]byte, error) {
-	return s.Sig.Signature()
-}
-
-func (s *OCISig) Cert() (*x509.Certificate, error) {
-	return s.Sig.Cert()
-}
-
-func (s *OCISig) DiffID() (v1.Hash, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) Compressed() (io.ReadCloser, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) Uncompressed() (io.ReadCloser, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) Size() (int64, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) MediaType() (types.MediaType, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) Annotations() (map[string]string, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) Base64Signature() (string, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) Chain() ([]*x509.Certificate, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) Bundle() (*cbundle.RekorBundle, error) {
-	panic("unimplemented")
-}
-
-func (s *OCISig) RFC3161Timestamp() (*cbundle.RFC3161Timestamp, error) {
-	panic("unimplemented")
 }
