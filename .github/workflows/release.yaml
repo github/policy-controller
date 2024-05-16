@@ -10,9 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       attestations: write
-      contents: write # needed to write releases
-      id-token: write # needed for keyless signing
-      packages: write # needed for pushing the images to ghcr.io
+      contents: write
+      id-token: write
+      packages: write
     env:
       KO_DOCKER_REPO: ghcr.io/github/policy-controller-webhook
       KOCACHE: /tmp/ko
@@ -25,7 +25,9 @@ jobs:
           go-version-file: "./go.mod"
           check-latest: true
       - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
-      - run: |
+      - name: Build and publish webhook to GHCR
+        id: build
+        run: |
           export GIT_HASH=`git rev-parse HEAD`
           export GIT_VERSION=`git describe --tags --always --dirty`
           export BUILD_DATE=`date +%Y-%m-%dT%H:%M:%SZ`
@@ -33,10 +35,12 @@ jobs:
 
           mkdir -p ${{ env.KOCACHE }}
           ko build
+          IMAGE_DIGEST=$(ko build | cut -d'@' -f2)
+          echo "image_digest=$IMAGE_DIGEST" >> $GITHUB_OUTPUT
       - name: Attest
         uses: actions/attest-build-provenance@951c0c5f8e375ad4efad33405ab77f7ded2358e4 # v1.1.1
         id: attest
         with:
           subject-name: ${{ env.KO_DOCKER_REPO }}
-          subject-digest: ${{ steps.push.outputs.digest }}
+          subject-digest: ${{ steps.build.outputs.image_digest }}
           push-to-registry: true
