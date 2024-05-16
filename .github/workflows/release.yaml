@@ -34,7 +34,8 @@ jobs:
           export LDFLAGS="-buildid= -X sigs.k8s.io/release-utils/version.gitVersion=$GIT_VERSION -X sigs.k8s.io/release-utils/version.gitCommit=$GIT_HASH -X sigs.k8s.io/release-utils/version.buildDate=$BUILD_DATE"
 
           mkdir -p ${{ env.KOCACHE }}
-          ko build
+          # ko build should print ghcr.io/github/policy-controller-webhook@sha256:<digest>
+          # to standard out. Capture the image digest for the build provenance step
           IMAGE_DIGEST=$(ko build | cut -d'@' -f2)
           echo "image_digest=$IMAGE_DIGEST" >> $GITHUB_OUTPUT
       - name: Attest
