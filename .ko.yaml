@@ -22,12 +22,11 @@ builds:
     env:
       - CGO_ENABLED=0
     flags:
-      - -trimpath
+      - --bare
+      - --platform=linux/amd64
       - --tags
       - "{{ .Env.GIT_HASH }}"
       - --tags
       - "{{ .Env.GIT_VERSION }}"
     ldflags:
-      - -extldflags "-static"
       - "{{ .Env.LDFLAGS }}"
-
