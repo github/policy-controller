@@ -17,7 +17,7 @@ require (
 	github.com/hashicorp/errwrap v1.1.0
 	github.com/hashicorp/go-cleanhttp v0.5.2
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-retryablehttp v0.7.5
+	github.com/hashicorp/go-retryablehttp v0.7.6
 	github.com/hashicorp/go-rootcerts v1.0.2
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.8
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2
@@ -40,7 +40,7 @@ require (
 	golang.org/x/net v0.25.0
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/time v0.5.0
-	google.golang.org/grpc v1.62.1 // indirect
+	google.golang.org/grpc v1.63.2 // indirect
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.4
@@ -62,7 +62,7 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/sigstore/protobuf-specs v0.3.2
-	github.com/sigstore/scaffolding v0.6.17
+	github.com/sigstore/scaffolding v0.7.1
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.3
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.3
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.3
@@ -188,7 +188,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.3 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
 	github.com/hashicorp/vault/api v1.12.2 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/in-toto/in-toto-golang v0.9.0 // indirect
@@ -218,7 +218,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.19.0 // indirect
+	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.51.1 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
