@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.1
 
 require (
-	github.com/aws/aws-sdk-go v1.52.4
+	github.com/aws/aws-sdk-go v1.53.0
 	github.com/aws/aws-sdk-go-v2 v1.26.0 // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -58,10 +58,10 @@ require (
 require github.com/spf13/cobra v1.8.0
 
 require (
-	github.com/docker/docker v26.1.1+incompatible
+	github.com/docker/docker v26.1.2+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-jose/go-jose/v3 v3.0.3
-	github.com/sigstore/protobuf-specs v0.3.1
+	github.com/sigstore/protobuf-specs v0.3.2
 	github.com/sigstore/scaffolding v0.6.17
 	github.com/sigstore/sigstore/pkg/signature/kms/aws v1.8.3
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.8.3
