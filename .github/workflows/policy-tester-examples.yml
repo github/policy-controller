@@ -18,7 +18,7 @@ name: Verify examples using policy-tester
 on:
   workflow_dispatch:
   push:
-    branches: ['main', 'release-*']
+    branches: ["main", "release"]
   pull_request:
 
 jobs:
@@ -34,123 +34,123 @@ jobs:
       COSIGN_YES: "true"
 
     steps:
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
-      with:
-        path: ./src/github.com/${{ github.repository }}
-        fetch-depth: 0
+      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        with:
+          path: ./src/github.com/${{ github.repository }}
+          fetch-depth: 0
 
-    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
-      with:
-        go-version-file: './src/github.com/${{ github.repository }}/go.mod'
-        check-latest: true
+      - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version-file: "./src/github.com/${{ github.repository }}/go.mod"
+          check-latest: true
 
-    - name: Build the policy-tester CLI
-      working-directory: ./src/github.com/${{ github.repository }}
-      run: |
-        make policy-tester
+      - name: Build the policy-tester CLI
+        working-directory: ./src/github.com/${{ github.repository }}
+        run: |
+          make policy-tester
 
-    - uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
+      - uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
 
-    - name: Setup local registry
-      run: |
-        docker run -d  --restart=always \
-          --name registry.local \
-          -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \
-          -p 5000:5000 \
-          registry:2
+      - name: Setup local registry
+        run: |
+          docker run -d  --restart=always \
+            --name registry.local \
+            -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 \
+            -p 5000:5000 \
+            registry:2
 
-    - name: Example (custom-key-attestation-sbom-spdxjson)
-      working-directory: ./src/github.com/${{ github.repository }}/examples
-      run: |
-        REF="localhost:5000/examples/custom-key-attestation-sbom-spdxjson"
+      - name: Example (custom-key-attestation-sbom-spdxjson)
+        working-directory: ./src/github.com/${{ github.repository }}/examples
+        run: |
+          REF="localhost:5000/examples/custom-key-attestation-sbom-spdxjson"
 
-        # Push an image
-        docker pull alpine
-        docker tag alpine "${REF}"
-        docker push "${REF}"
+          # Push an image
+          docker pull alpine
+          docker tag alpine "${REF}"
+          docker push "${REF}"
 
-        # Attach attestation to image
-        cosign attest --yes --type spdxjson \
-          --predicate sboms/example.spdx.json \
-          --key keys/cosign.key \
-          "${REF}"
+          # Attach attestation to image
+          cosign attest --yes --type spdxjson \
+            --predicate sboms/example.spdx.json \
+            --key keys/cosign.key \
+            "${REF}"
 
-        # Verify the attestation
-        cosign verify-attestation \
-          --type spdxjson \
-          --key keys/cosign.pub \
-          "${REF}"
+          # Verify the attestation
+          cosign verify-attestation \
+            --type spdxjson \
+            --key keys/cosign.pub \
+            "${REF}"
 
-        # Ensure the image satisfies the policy
-        ../policy-tester \
-          --policy policies/custom-key-attestation-sbom-spdxjson.yaml \
-          --image "${REF}"
+          # Ensure the image satisfies the policy
+          ../policy-tester \
+            --policy policies/custom-key-attestation-sbom-spdxjson.yaml \
+            --image "${REF}"
 
-    # Make sure we can't run Jobs, exercise metadata CIP matching.
-    - name: Example (verify CIP level typemeta policy failure)
-      working-directory: ./src/github.com/${{ github.repository }}
-      run: |
-        REF="ghcr.io/sigstore/timestamp-server@sha256:dcf2f3a640bfb0a5d17aabafb34b407fe4403363c715718ab305a62b3606540d"
+      # Make sure we can't run Jobs, exercise metadata CIP matching.
+      - name: Example (verify CIP level typemeta policy failure)
+        working-directory: ./src/github.com/${{ github.repository }}
+        run: |
+          REF="ghcr.io/sigstore/timestamp-server@sha256:dcf2f3a640bfb0a5d17aabafb34b407fe4403363c715718ab305a62b3606540d"
 
-        # Ensure the image does not satisfy the policy
-        if ./policy-tester \
-          --policy examples/policies/allow-only-pods.yaml \
-          --image "${REF}" \
-          --resource test/testdata/resources/job.yaml ; then
-            echo Failed to block Job from running
-            exit 1
-        fi
+          # Ensure the image does not satisfy the policy
+          if ./policy-tester \
+            --policy examples/policies/allow-only-pods.yaml \
+            --image "${REF}" \
+            --resource test/testdata/resources/job.yaml ; then
+              echo Failed to block Job from running
+              exit 1
+          fi
 
-    # Make sure we can't run Pods, exercise metadata CIP matching.
-    - name: Example (verify CIP level typemeta policy success)
-      working-directory: ./src/github.com/${{ github.repository }}
-      run: |
-        REF="ghcr.io/sigstore/timestamp-server@sha256:dcf2f3a640bfb0a5d17aabafb34b407fe4403363c715718ab305a62b3606540d"
+      # Make sure we can't run Pods, exercise metadata CIP matching.
+      - name: Example (verify CIP level typemeta policy success)
+        working-directory: ./src/github.com/${{ github.repository }}
+        run: |
+          REF="ghcr.io/sigstore/timestamp-server@sha256:dcf2f3a640bfb0a5d17aabafb34b407fe4403363c715718ab305a62b3606540d"
 
-        # Ensure the image satisfies the policy
-        ./policy-tester \
-          --policy examples/policies/allow-only-pods.yaml \
-          --image "${REF}" \
-          --resource test/testdata/resources/pod.yaml
+          # Ensure the image satisfies the policy
+          ./policy-tester \
+            --policy examples/policies/allow-only-pods.yaml \
+            --image "${REF}" \
+            --resource test/testdata/resources/pod.yaml
 
-    # This example requires public Fulcio, only run on push to main
-    - if: ${{ github.event_name == 'push' }}
-      name: Example (keyless-attestation-sbom-spdxjson)
-      working-directory: ./src/github.com/${{ github.repository }}/examples
-      run: |
-        REF="localhost:5000/examples/keyless-attestation-sbom-spdxjson"
+      # This example requires public Fulcio, only run on push to main
+      - if: ${{ github.event_name == 'push' }}
+        name: Example (keyless-attestation-sbom-spdxjson)
+        working-directory: ./src/github.com/${{ github.repository }}/examples
+        run: |
+          REF="localhost:5000/examples/keyless-attestation-sbom-spdxjson"
 
-        # Push an image
-        docker pull alpine
-        docker tag alpine "${REF}"
-        docker push "${REF}"
+          # Push an image
+          docker pull alpine
+          docker tag alpine "${REF}"
+          docker push "${REF}"
 
-        # Attach attestation to image
-        cosign attest --yes --type spdxjson \
-          --predicate sboms/example.spdx.json \
-          "${REF}"
+          # Attach attestation to image
+          cosign attest --yes --type spdxjson \
+            --predicate sboms/example.spdx.json \
+            "${REF}"
 
-        # Ensure the image satisfies the policy
-        ../policy-tester \
-          --policy policies/keyless-attestation-sbom-spdxjson.yaml \
-          --image "${REF}"
+          # Ensure the image satisfies the policy
+          ../policy-tester \
+            --policy policies/keyless-attestation-sbom-spdxjson.yaml \
+            --image "${REF}"
 
-    # This example requires public Fulcio, only run on push to main
-    - if: ${{ github.event_name == 'push' }}
-      name: Example (signed-by-github-actions)
-      working-directory: ./src/github.com/${{ github.repository }}/examples
-      run: |
-        REF="localhost:5000/examples/signed-by-github-actions"
+      # This example requires public Fulcio, only run on push to main
+      - if: ${{ github.event_name == 'push' }}
+        name: Example (signed-by-github-actions)
+        working-directory: ./src/github.com/${{ github.repository }}/examples
+        run: |
+          REF="localhost:5000/examples/signed-by-github-actions"
 
-        # Push an image
-        docker pull alpine
-        docker tag alpine "${REF}"
-        docker push "${REF}"
+          # Push an image
+          docker pull alpine
+          docker tag alpine "${REF}"
+          docker push "${REF}"
 
-        # Sign image
-        cosign sign "${REF}"
+          # Sign image
+          cosign sign "${REF}"
 
-        # Ensure the image satisfies the policy
-        ../policy-tester \
-          --policy policies/signed-by-github-actions.yaml \
-          --image "${REF}"
+          # Ensure the image satisfies the policy
+          ../policy-tester \
+            --policy policies/signed-by-github-actions.yaml \
+            --image "${REF}"

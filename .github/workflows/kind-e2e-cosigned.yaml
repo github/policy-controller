@@ -16,7 +16,7 @@ name: Policy Controller KinD E2E
 
 on:
   pull_request:
-    branches: [ 'main', 'release-*' ]
+    branches: ["main", "release"]
 
 permissions: read-all
 
@@ -29,10 +29,10 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-        - v1.23.x
-        - v1.24.x
-        - v1.25.x
-        - v1.26.x
+          - v1.23.x
+          - v1.24.x
+          - v1.25.x
+          - v1.26.x
 
     env:
       # https://github.com/google/go-containerregistry/pull/125 allows insecure registry for
@@ -44,8 +44,8 @@ jobs:
       KO_DOCKER_REPO: registry.local:5000/policy-controller
 
     steps:
-    - name: free up disk space for the release
-      run: |
+      - name: free up disk space for the release
+        run: |
           rm -rf /usr/share/dotnet/
           rm -rf "$AGENT_TOOLSDIRECTORY"
           rm -rf "/usr/local/share/boost"
@@ -92,82 +92,82 @@ jobs:
           apt-get remove -y 'php.*' || true
           apt-get autoremove -y >/dev/null 2>&1 || true
           apt-get autoclean -y >/dev/null 2>&1 || true
-    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
-    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
-      with:
-        go-version-file: './go.mod'
-        check-latest: true
+      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version-file: "./go.mod"
+          check-latest: true
 
-    - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
+      - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
 
-    - uses: imranismail/setup-kustomize@2ba527d4d055ab63514ba50a99456fc35684947f # v2.1.0
+      - uses: imranismail/setup-kustomize@2ba527d4d055ab63514ba50a99456fc35684947f # v2.1.0
 
-    - name: Install yq
-      uses: mikefarah/yq@557dcb87b8efe786f89a12c09e9046b4753ab72e # v4.44.1
+      - name: Install yq
+        uses: mikefarah/yq@557dcb87b8efe786f89a12c09e9046b4753ab72e # v4.44.1
 
-    - uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
+      - uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
 
-    - name: Setup mirror
-      uses: chainguard-dev/actions/setup-mirror@main
-      with:
-        mirror: mirror.gcr.io
+      - name: Setup mirror
+        uses: chainguard-dev/actions/setup-mirror@main
+        with:
+          mirror: mirror.gcr.io
 
-    - name: Setup kind cluster
-      uses: chainguard-dev/actions/setup-kind@main
-      with:
-        k8s-version: ${{ matrix.k8s-version }}
-        cluster-suffix: c${{ github.run_id }}.local
+      - name: Setup kind cluster
+        uses: chainguard-dev/actions/setup-kind@main
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          cluster-suffix: c${{ github.run_id }}.local
 
-    - name: Setup local insecure registry
-      run: |
-        # Create a self-signed SSL cert
-        mkdir -p insecure-certs
-        openssl req \
-          -subj "/C=US/ST=WA/L=Flavorton/O=Tests-R-Us/OU=Dept. of Insecurity/CN=example.com/emailAddress=testing@example.com" \
-          -newkey rsa:4096 -nodes -sha256 -keyout insecure-certs/domain.key \
-          -x509 -days 365 -out insecure-certs/domain.crt
+      - name: Setup local insecure registry
+        run: |
+          # Create a self-signed SSL cert
+          mkdir -p insecure-certs
+          openssl req \
+            -subj "/C=US/ST=WA/L=Flavorton/O=Tests-R-Us/OU=Dept. of Insecurity/CN=example.com/emailAddress=testing@example.com" \
+            -newkey rsa:4096 -nodes -sha256 -keyout insecure-certs/domain.key \
+            -x509 -days 365 -out insecure-certs/domain.crt
 
-        # Run a registry.
-        docker run -d  --restart=always \
-          --name $INSECURE_REGISTRY_NAME \
-          -v "$(pwd)"/insecure-certs:/insecure-certs \
-          -e REGISTRY_HTTP_ADDR=0.0.0.0:$INSECURE_REGISTRY_PORT \
-          -e REGISTRY_HTTP_TLS_CERTIFICATE=/insecure-certs/domain.crt \
-          -e REGISTRY_HTTP_TLS_KEY=/insecure-certs/domain.key \
-          -p $INSECURE_REGISTRY_PORT:$INSECURE_REGISTRY_PORT \
-          registry:2
+          # Run a registry.
+          docker run -d  --restart=always \
+            --name $INSECURE_REGISTRY_NAME \
+            -v "$(pwd)"/insecure-certs:/insecure-certs \
+            -e REGISTRY_HTTP_ADDR=0.0.0.0:$INSECURE_REGISTRY_PORT \
+            -e REGISTRY_HTTP_TLS_CERTIFICATE=/insecure-certs/domain.crt \
+            -e REGISTRY_HTTP_TLS_KEY=/insecure-certs/domain.key \
+            -p $INSECURE_REGISTRY_PORT:$INSECURE_REGISTRY_PORT \
+            registry:2
 
-        # Connect the registry to the KinD network.
-        docker network connect "kind" $INSECURE_REGISTRY_NAME
+          # Connect the registry to the KinD network.
+          docker network connect "kind" $INSECURE_REGISTRY_NAME
 
-        # Make the $INSECURE_REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
-        # local registry, even when pushing $INSECURE_REGISTRY_NAME:$INSECURE_REGISTRY_NAME/some/image
-        sudo echo "127.0.0.1 $INSECURE_REGISTRY_NAME" | sudo tee -a /etc/hosts
+          # Make the $INSECURE_REGISTRY_NAME -> 127.0.0.1, to tell `ko` to publish to
+          # local registry, even when pushing $INSECURE_REGISTRY_NAME:$INSECURE_REGISTRY_NAME/some/image
+          sudo echo "127.0.0.1 $INSECURE_REGISTRY_NAME" | sudo tee -a /etc/hosts
 
-    - name: Install policy-controller
-      env:
-        GIT_HASH: ${{ github.sha }}
-        GIT_VERSION: ci
-        LDFLAGS: ""
-        POLICY_CONTROLLER_YAML: policy-controller-e2e.yaml
-        KO_PREFIX: registry.local:5000/policy-controller
-        POLICY_CONTROLLER_ARCHS: linux/amd64
-      run: |
-        make ko-policy-controller
-        kubectl apply -f policy-controller-e2e.yaml
+      - name: Install policy-controller
+        env:
+          GIT_HASH: ${{ github.sha }}
+          GIT_VERSION: ci
+          LDFLAGS: ""
+          POLICY_CONTROLLER_YAML: policy-controller-e2e.yaml
+          KO_PREFIX: registry.local:5000/policy-controller
+          POLICY_CONTROLLER_ARCHS: linux/amd64
+        run: |
+          make ko-policy-controller
+          kubectl apply -f policy-controller-e2e.yaml
 
-        # Wait for the webhook to come up and become Ready
-        kubectl rollout status --timeout 5m --namespace cosign-system deployments/webhook
-        kubectl wait deployment -n cosign-system --for condition=Available=True --timeout=90s --all
+          # Wait for the webhook to come up and become Ready
+          kubectl rollout status --timeout 5m --namespace cosign-system deployments/webhook
+          kubectl wait deployment -n cosign-system --for condition=Available=True --timeout=90s --all
 
-    - name: Run Image Policy Tests
-      run: |
-        ./test/e2e_test_policy_crd.sh
+      - name: Run Image Policy Tests
+        run: |
+          ./test/e2e_test_policy_crd.sh
 
-    - name: Run Policy Controller Tests
-      run: |
-        ./test/e2e_test_policy_controller.sh
+      - name: Run Policy Controller Tests
+        run: |
+          ./test/e2e_test_policy_controller.sh
 
-    - name: Collect diagnostics
-      if: ${{ failure() }}
-      uses: chainguard-dev/actions/kind-diag@84c993eaf02da1c325854fb272a4df9184bd80fc # main
+      - name: Collect diagnostics
+        if: ${{ failure() }}
+        uses: chainguard-dev/actions/kind-diag@84c993eaf02da1c325854fb272a4df9184bd80fc # main
