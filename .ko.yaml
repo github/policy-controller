@@ -30,4 +30,3 @@ builds:
     ldflags:
       - -extldflags "-static"
       - "{{ .Env.LDFLAGS }}"
-
