@@ -1,108 +1,47 @@
-name: Cut Release
+name: Release
 
 on:
   push:
     tags:
       - "v*"
 
-concurrency: cut-release
-
-permissions:
-  contents: write # needed to write releases
-  id-token: write # needed for keyless signing
-  packages: write # needed for pushing the images to ghcr.io
-
 jobs:
   release:
-    outputs:
-      hashes: ${{ steps.hash.outputs.hashes }}
-      tag_name: ${{ steps.tag.outputs.tag_name }}
     runs-on: ubuntu-latest
-    steps:
-      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
-
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
-        with:
-          go-version-file: './go.mod'
-          check-latest: true
-
-      - uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382
-
-      - uses: anchore/sbom-action/download-syft@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
-
-      - uses: ko-build/setup-ko@3aebd0597dc1e9d1a26bcfdb7cbeb19c131d3037 # v0.7
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/auth@62cf5bd3e4211a0a0b51f2c6d6a37129d828611d # v2.1.5
-        with:
-          workload_identity_provider: 'projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-policy-controller'
-          service_account: 'gha-policy-controller@projectsigstore.iam.gserviceaccount.com'
-
-      - name: 'Set up Cloud SDK'
-        uses: google-github-actions/setup-gcloud@f0990588f1e5b5af6827153b93673613abdc6ec7 # v2.1.1
-
-      - name: creds
-        run: gcloud auth configure-docker --quiet
-
-      - name: Set LDFLAGS
-        id: ldflags
-        run: |
-           source ./release/ldflags.sh
-           goflags=$(ldflags)
-           echo "GO_FLAGS="${goflags}"" >> "$GITHUB_ENV"
-
-      - name: Set tag output
-        id: tag
-        run: echo "tag_name=${GITHUB_REF#refs/*/}" >> "$GITHUB_OUTPUT"
-
-      - name: Run GoReleaser
-        id: run-goreleaser
-        uses: goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200 # v6.0.0
-        with:
-          version: latest
-          args: release --clean --timeout 120m
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LDFLAGS: ${{ env.GO_FLAGS }}
-
-      - name: Generate subject
-        id: hash
-        env:
-          ARTIFACTS: "${{ steps.run-goreleaser.outputs.artifacts }}"
-        run: |
-          set -euo pipefail
-          checksum_file=$(echo "$ARTIFACTS" | jq -r '.[] | select (.type=="Checksum") | .path')
-          echo "hashes=$(cat $checksum_file | base64 -w0)" >> "$GITHUB_OUTPUT"
-
-      - name: build images
-        run: |
-          make build-sign-release-images
-        env:
-          LDFLAGS: ${{ env.GO_FLAGS }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: copy-signed-release-to-ghcr
-        run: make copy-signed-release-to-ghcr || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  provenance:
-    needs: [release]
     permissions:
-      actions: read # To read the workflow path.
-      id-token: write # To sign the provenance.
-      contents: write # To add assets to a release.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
-    with:
-      base64-subjects: "${{ needs.release.outputs.hashes }}"
-      upload-assets: true # upload to a new release
-      upload-tag-name: "${{ needs.release.outputs.tag_name }}"
+      attestations: write
+      contents: write
+      id-token: write
+      packages: write
+    env:
+      KO_DOCKER_REPO: ghcr.io/github/policy-controller-webhook
+      KOCACHE: /tmp/ko
+    steps:
+      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+        with:
+          ref: "release"
+      - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version-file: "./go.mod"
+          check-latest: true
+      - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
+      - name: Build and publish webhook to GHCR
+        id: build
+        run: |
+          export GIT_HASH=`git rev-parse HEAD`
+          export GIT_VERSION=`git describe --tags --always --dirty`
+          export BUILD_DATE=`date +%Y-%m-%dT%H:%M:%SZ`
+          export LDFLAGS="-buildid= -X sigs.k8s.io/release-utils/version.gitVersion=$GIT_VERSION -X sigs.k8s.io/release-utils/version.gitCommit=$GIT_HASH -X sigs.k8s.io/release-utils/version.buildDate=$BUILD_DATE"
+
+          mkdir -p ${{ env.KOCACHE }}
+          # ko build should print ghcr.io/github/policy-controller-webhook@sha256:<digest>
+          # to standard out. Capture the image digest for the build provenance step
+          IMAGE_DIGEST=$(ko build --bare --tags $GIT_VERSION --tags $GIT_HASH --platform=linux/amd64 github.com/sigstore/policy-controller/cmd/webhook | cut -d'@' -f2)
+          echo "image_digest=$IMAGE_DIGEST" >> $GITHUB_OUTPUT
+      - name: Attest
+        uses: actions/attest-build-provenance@951c0c5f8e375ad4efad33405ab77f7ded2358e4 # v1.1.1
+        id: attest
+        with:
+          subject-name: ${{ env.KO_DOCKER_REPO }}
+          subject-digest: ${{ steps.build.outputs.image_digest }}
+          push-to-registry: true
