@@ -145,12 +145,16 @@ This policy-controller's versions are able to run in the following versions of K
 
 note: not fully tested yet, but can be installed
 
-## Release Cadence
+## Cutting a new release
 
-We are intending to move to a monthly cadence for minor releases.
-Minor releases will be published around the beginning of the month.
-We may cut a patch release instead, if the changes are small enough not to warrant a minor release.
-We will also cut patch releases periodically as needed to address bugs.
+The branch `release` on the private fork is used for customer-facing released code. 
+
+In order to push a new release, follow these steps:
+
+1. Merge any changes into the `release` branch.
+1. Tag as `v0.9.0+githubX` (incrementing the `X` as needed).
+1. Push the tag to the private fork.
+1. The [Release GitHub Action workflow](https://github.com/github/policy-controller/actions/workflows/release.yaml) will triggered automatically when the tag is pushed
 
 ## Security
 
