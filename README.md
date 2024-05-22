@@ -90,7 +90,7 @@ The branch `release` on the private fork is used for customer-facing released co
 In order to push a new release, follow these steps:
 
 1. Merge any changes into the `release` branch.
-1. Tag as `v0.9.0.alphaX` (incrementing the `X` as needed).
+1. Tag as `v0.9.0+githubX` (incrementing the `X` as needed).
 1. Push the tag to the private fork.
 1. The [Release GitHub Action workflow](https://github.com/github/policy-controller/actions/workflows/release.yaml) will triggered automatically when the tag is pushed
 
