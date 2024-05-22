@@ -18,7 +18,7 @@ name: Codegen
 on:
   workflow_dispatch:
   push:
-    branches: ["main", "release"]
+    branches: ['main', 'release']
   pull_request:
 
 permissions: read-all
@@ -32,25 +32,25 @@ jobs:
       GOPATH: ${{ github.workspace }}
 
     steps:
-      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
-        with:
-          path: ./src/github.com/${{ github.repository }}
-          fetch-depth: 0
+    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+      with:
+        path: ./src/github.com/${{ github.repository }}
+        fetch-depth: 0
 
-      - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
-        with:
-          go-version-file: "./src/github.com/${{ github.repository }}/go.mod"
-          check-latest: true
+    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+      with:
+        go-version-file: './src/github.com/${{ github.repository }}/go.mod'
+        check-latest: true
 
-      - shell: bash
-        working-directory: ./src/github.com/${{ github.repository }}
-        run: |
-          ./hack/update-codegen.sh
+    - shell: bash
+      working-directory: ./src/github.com/${{ github.repository }}
+      run: |
+        ./hack/update-codegen.sh
 
-          # For whatever reason running this makes it not complain...
-          git status
+        # For whatever reason running this makes it not complain...
+        git status
 
-      - uses: chainguard-dev/actions/nodiff@4ba8d060251254fc0e65500a8d3a90013a22a8d7 # main
-        with:
-          path: ./src/github.com/${{ github.repository }}
-          fixup-command: "./hack/update-codegen.sh"
+    - uses: chainguard-dev/actions/nodiff@4ba8d060251254fc0e65500a8d3a90013a22a8d7 # main
+      with:
+        path: ./src/github.com/${{ github.repository }}
+        fixup-command: "./hack/update-codegen.sh"

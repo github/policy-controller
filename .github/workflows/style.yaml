@@ -2,7 +2,7 @@ name: Code Style
 
 on:
   pull_request:
-    branches: ["main", "release"]
+    branches: [ 'main', 'release' ]
 
 permissions: read-all
 
@@ -18,7 +18,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
-          go-version-file: "./go.mod"
+          go-version-file: './go.mod'
           check-latest: true
 
       - uses: chainguard-dev/actions/gofmt@e6364567e59cb42c49cf69f8e1242f247bc23844 # main
@@ -36,7 +36,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
-          go-version-file: "./go.mod"
+          go-version-file: './go.mod'
           check-latest: true
 
       - uses: chainguard-dev/actions/goimports@main # main

@@ -2,11 +2,12 @@ name: Whitespace
 
 on:
   pull_request:
-    branches: ["main", "release"]
+    branches: [ 'main', 'release' ]
 
 permissions: read-all
 
 jobs:
+
   whitespace:
     name: Check Whitespace
     runs-on: ubuntu-latest

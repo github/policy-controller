@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
         with:
-          go-version-file: "./go.mod"
+          go-version-file: './go.mod'
           check-latest: true
 
       # will use the latest release available for ko
@@ -50,8 +50,8 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/auth@55bd3a7c6e2ae7cf1877fd1ccb9d54c0503c457c # v2.1.2
         with:
-          workload_identity_provider: "projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-policy-controller"
-          service_account: "gha-policy-controller@projectsigstore.iam.gserviceaccount.com"
+          workload_identity_provider: 'projects/498091336538/locations/global/workloadIdentityPools/githubactions/providers/sigstore-policy-controller'
+          service_account: 'gha-policy-controller@projectsigstore.iam.gserviceaccount.com'
 
       - name: creds
         run: gcloud auth configure-docker --quiet

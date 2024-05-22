@@ -16,7 +16,7 @@ name: Test policy-controller with TrustRoot - Bring your own keys
 
 on:
   pull_request:
-    branches: ["main", "release"]
+    branches: [ 'main', 'release' ]
 
 defaults:
   run:
@@ -33,14 +33,14 @@ jobs:
       fail-fast: false # Keep running if one leg fails.
       matrix:
         k8s-version:
-          - v1.23.x
-          - v1.24.x
-          - v1.25.x
+        - v1.23.x
+        - v1.24.x
+        - v1.25.x
 
         script:
-          - repository
-          - remote
-          - bring_own_keys
+        - repository
+        - remote
+        - bring_own_keys
 
     env:
       KO_DOCKER_REPO: "registry.local:5000/policy-controller"
@@ -50,8 +50,8 @@ jobs:
       KOCACHE: ~/ko
 
     steps:
-      - name: free up disk space for the release
-        run: |
+    - name: free up disk space for the release
+      run: |
           rm -rf /usr/share/dotnet/
           rm -rf "$AGENT_TOOLSDIRECTORY"
           rm -rf "/usr/local/share/boost"
@@ -98,55 +98,55 @@ jobs:
           apt-get remove -y 'php.*' || true
           apt-get autoremove -y >/dev/null 2>&1 || true
           apt-get autoclean -y >/dev/null 2>&1 || true
-      - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
-      - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
-        with:
-          go-version-file: "./go.mod"
-          check-latest: true
+    - uses: actions/checkout@44c2b7a8a4ea60a981eaca3cf939b5f4305c123b # v4.1.5
+    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+      with:
+        go-version-file: './go.mod'
+        check-latest: true
 
-      # will use the latest release available for ko
-      - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
+    # will use the latest release available for ko
+    - uses: ko-build/setup-ko@ace48d793556083a76f1e3e6068850c1f4a369aa # v0.6
 
-      - uses: imranismail/setup-kustomize@2ba527d4d055ab63514ba50a99456fc35684947f # v2.1.0
+    - uses: imranismail/setup-kustomize@2ba527d4d055ab63514ba50a99456fc35684947f # v2.1.0
 
-      - name: Install yq
-        uses: mikefarah/yq@557dcb87b8efe786f89a12c09e9046b4753ab72e # v4.44.1
+    - name: Install yq
+      uses: mikefarah/yq@557dcb87b8efe786f89a12c09e9046b4753ab72e # v4.44.1
 
-      - name: Setup mirror
-        uses: chainguard-dev/actions/setup-mirror@main
-        with:
-          mirror: mirror.gcr.io
+    - name: Setup mirror
+      uses: chainguard-dev/actions/setup-mirror@main
+      with:
+        mirror: mirror.gcr.io
 
-      - uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
+    - uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20
 
-      - name: Install cluster + sigstore
-        uses: sigstore/scaffolding/actions/setup@main
-        with:
-          k8s-version: ${{ matrix.k8s-version}}
-          version: ${{ env.SCAFFOLDING_RELEASE_VERSION }}
+    - name: Install cluster + sigstore
+      uses: sigstore/scaffolding/actions/setup@main
+      with:
+        k8s-version: ${{ matrix.k8s-version}}
+        version: ${{ env.SCAFFOLDING_RELEASE_VERSION }}
 
-      # Install policy-controller that does not have TUF embedded or installed.
-      - name: Install policy-controller
-        env:
-          GIT_HASH: ${{ github.sha }}
-          GIT_VERSION: ci
-          LDFLAGS: ""
-          POLICY_CONTROLLER_YAML: test/kustomize-no-tuf/policy-controller-e2e.yaml
-          KO_PREFIX: registry.local:5000/policy-controller
-          POLICY_CONTROLLER_ARCHS: linux/amd64
-        run: |
-          make ko-policy-controller
-          kustomize build test/kustomize-no-tuf | kubectl apply -f -
+    # Install policy-controller that does not have TUF embedded or installed.
+    - name: Install policy-controller
+      env:
+        GIT_HASH: ${{ github.sha }}
+        GIT_VERSION: ci
+        LDFLAGS: ""
+        POLICY_CONTROLLER_YAML: test/kustomize-no-tuf/policy-controller-e2e.yaml
+        KO_PREFIX: registry.local:5000/policy-controller
+        POLICY_CONTROLLER_ARCHS: linux/amd64
+      run: |
+        make ko-policy-controller
+        kustomize build test/kustomize-no-tuf | kubectl apply -f -
 
-          # Wait for the webhook to come up and become Ready
-          kubectl rollout status --timeout 5m --namespace cosign-system deployments/webhook
-          echo "TUF_ROOT_FILE=./root.json" >> $GITHUB_ENV
+        # Wait for the webhook to come up and become Ready
+        kubectl rollout status --timeout 5m --namespace cosign-system deployments/webhook
+        echo "TUF_ROOT_FILE=./root.json" >> $GITHUB_ENV
 
-      - name: Run Trustroot Tests that tests with different TUF configurations
-        timeout-minutes: 5
-        run: |
-          ./test/e2e_test_cluster_image_policy_with_trustroot_${{ matrix.script }}.sh
+    - name: Run Trustroot Tests that tests with different TUF configurations
+      timeout-minutes: 5
+      run: |
+        ./test/e2e_test_cluster_image_policy_with_trustroot_${{ matrix.script }}.sh
 
-      - name: Collect diagnostics
-        if: ${{ failure() }}
-        uses: chainguard-dev/actions/kind-diag@84c993eaf02da1c325854fb272a4df9184bd80fc # main
+    - name: Collect diagnostics
+      if: ${{ failure() }}
+      uses: chainguard-dev/actions/kind-diag@84c993eaf02da1c325854fb272a4df9184bd80fc # main

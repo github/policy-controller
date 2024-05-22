@@ -2,11 +2,12 @@ name: Do Not Submit
 
 on:
   pull_request:
-    branches: ["main", "release"]
+    branches: [ 'main', 'release' ]
 
 permissions: read-all
 
 jobs:
+
   donotsubmit:
     name: Do Not Submit
     runs-on: ubuntu-latest
