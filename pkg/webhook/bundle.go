@@ -56,7 +56,7 @@ func (vb *VerifiedBundle) Cert() (*x509.Certificate, error) {
 	return nil, errors.New("bundle does not contain a certificate")
 }
 
-func AttestationBundles(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) ([]Signature, error) {
+func VerifiedBundles(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) ([]Signature, error) {
 	verifierConfig := []verify.VerifierOption{verify.WithObserverTimestamps(1)}
 	sev, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierConfig...)
 	if err != nil {

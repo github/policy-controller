@@ -1027,7 +1027,7 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		policyOptions = append(policyOptions, verify.WithCertificateIdentity(id))
 	}
 
-	verifiedBundles, err := AttestationBundles(ref, trustedMaterial, remoteOpts, policyOptions)
+	verifiedBundles, err := VerifiedBundles(ref, trustedMaterial, remoteOpts, policyOptions)
 	if err != nil {
 		return nil, err
 	}
