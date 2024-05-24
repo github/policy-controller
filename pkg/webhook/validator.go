@@ -40,6 +40,7 @@ import (
 	"github.com/sigstore/policy-controller/pkg/apis/config"
 	policyduckv1beta1 "github.com/sigstore/policy-controller/pkg/apis/duck/v1beta1"
 	policycontrollerconfig "github.com/sigstore/policy-controller/pkg/config"
+	pctuf "github.com/sigstore/policy-controller/pkg/tuf"
 	webhookcip "github.com/sigstore/policy-controller/pkg/webhook/clusterimagepolicy"
 	"github.com/sigstore/policy-controller/pkg/webhook/registryauth"
 	rekor "github.com/sigstore/rekor/pkg/client"
@@ -996,21 +997,12 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		remoteOpts = append(remoteOpts, remoteOpts...)
 	}
 
-	var trustedMaterial sgroot.TrustedMaterial
-
-	trustRoot, err := sigstoreKeysFromContext(ctx, authority.Keyless.TrustRootRef)
+	trustedMaterial, err := trustedMaterialFromAuthority(ctx, authority)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get trusted root from context: %w", err)
-	}
-	if pbTrustedRoot, ok := trustRoot.SigstoreKeys[authority.Keyless.TrustRootRef]; ok {
-		trustedMaterial, err = sgroot.NewTrustedRootFromProtobuf(pbTrustedRoot)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse trusted root from protobuf: %w", err)
-		}
-	} else {
-		return nil, fmt.Errorf("failed to find trusted root \"%s\"", authority.Keyless.TrustRootRef)
+		return nil, fmt.Errorf("failed to get trusted material: %w", err)
 	}
 
+	// TODO: what if not keyless?
 	if authority.Keyless.Identities == nil {
 		return nil, errors.New("must specify at least one identity for keyless authority")
 	}
@@ -1037,6 +1029,34 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 	}
 
 	return checkPredicates(ctx, authority, verifiedBundles)
+}
+
+func trustedMaterialFromAuthority(ctx context.Context, authority webhookcip.Authority) (sgroot.TrustedMaterial, error) {
+	var trustedMaterial sgroot.TrustedMaterial
+	if authority.Keyless != nil {
+		if authority.Keyless.TrustRootRef != "" {
+			trustRoot, err := sigstoreKeysFromContext(ctx, authority.Keyless.TrustRootRef)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get trusted root from context: %w", err)
+			}
+			if pbTrustedRoot, ok := trustRoot.SigstoreKeys[authority.Keyless.TrustRootRef]; ok {
+				trustedMaterial, err = sgroot.NewTrustedRootFromProtobuf(pbTrustedRoot)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse trusted root from protobuf: %w", err)
+				}
+				return trustedMaterial, nil
+			} else {
+				return nil, fmt.Errorf("trusted root \"%s\" does not exist", authority.Keyless.TrustRootRef)
+			}
+		}
+		trustedMaterial, err := pctuf.GetTrustedRoot()
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse trusted root from protobuf: %w", err)
+		}
+
+		return trustedMaterial, nil
+	}
+	return nil, errors.New("no trusted material specified") // TODO: better error message
 }
 
 // ResolvePodScalable implements policyduckv1beta1.PodScalableValidator
