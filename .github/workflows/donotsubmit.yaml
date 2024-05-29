@@ -2,7 +2,7 @@ name: Do Not Submit
 
 on:
   pull_request:
-    branches: [ 'main', 'release-*' ]
+    branches: [ 'main', 'release' ]
 
 permissions: read-all
 
