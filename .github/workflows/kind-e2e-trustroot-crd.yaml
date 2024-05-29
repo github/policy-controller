@@ -16,7 +16,7 @@ name: TrustRoot CRD KinD E2E
 
 on:
   pull_request:
-    branches: [ 'main', 'release-*' ]
+    branches: [ 'main', 'release' ]
 
 permissions: read-all
 
