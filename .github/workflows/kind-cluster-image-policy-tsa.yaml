@@ -16,7 +16,7 @@ name: Test policy-controller with TSA
 
 on:
   pull_request:
-    branches: [ 'main', 'release-*' ]
+    branches: [ 'main', 'release' ]
 
 defaults:
   run:
