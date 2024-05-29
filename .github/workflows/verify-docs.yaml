@@ -18,7 +18,7 @@ name: API Docs Generator
 on:
   workflow_dispatch:
   push:
-    branches: ['main', 'release-*']
+    branches: ['main', 'release']
   pull_request:
 
 permissions: read-all

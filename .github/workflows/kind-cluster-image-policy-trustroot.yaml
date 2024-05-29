@@ -16,7 +16,7 @@ name: Test policy-controller with TrustRoot - Bring your own keys
 
 on:
   pull_request:
-    branches: [ 'main', 'release-*' ]
+    branches: [ 'main', 'release' ]
 
 defaults:
   run:
