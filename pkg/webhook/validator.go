@@ -1016,7 +1016,16 @@ func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref n
 		policyOptions = append(policyOptions, verify.WithCertificateIdentity(id))
 	}
 
-	verifiedBundles, err := VerifiedBundles(ref, trustedMaterial, remoteOpts, policyOptions)
+	// If the authority requires a timestamp, use it, otherwise use transparency log
+	// TODO: We should allow this to be configurable in ClusterImagePolicy. Current behavior is equivalent to the legacy verifier behavior.
+	var verifierOptions []verify.VerifierOption
+	if authority.RFC3161Timestamp != nil {
+		verifierOptions = append(verifierOptions, verify.WithSignedTimestamps(1))
+	} else {
+		verifierOptions = append(verifierOptions, verify.WithTransparencyLog(1), verify.WithObserverTimestamps(1))
+	}
+
+	verifiedBundles, err := VerifiedBundles(ref, trustedMaterial, remoteOpts, policyOptions, verifierOptions)
 	if err != nil {
 		return nil, err
 	}

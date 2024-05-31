@@ -56,11 +56,8 @@ func (vb *VerifiedBundle) Cert() (*x509.Certificate, error) {
 	return nil, errors.New("bundle does not contain a certificate")
 }
 
-func VerifiedBundles(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption) ([]Signature, error) {
-	// Require a single observer timestamp
-	// TODO: We should allow this to be configurable in ClusterImagePolicy. Current behavior is equivalent to the legacy verifier behavior.
-	verifierConfig := []verify.VerifierOption{verify.WithObserverTimestamps(1)}
-	sev, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierConfig...)
+func VerifiedBundles(ref name.Reference, trustedMaterial root.TrustedMaterial, remoteOpts []remote.Option, policyOptions []verify.PolicyOption, verifierOptions []verify.VerifierOption) ([]Signature, error) {
+	sev, err := verify.NewSignedEntityVerifier(trustedMaterial, verifierOptions...)
 	if err != nil {
 		return nil, err
 	}
