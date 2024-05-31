@@ -988,13 +988,10 @@ func checkPredicates(ctx context.Context, authority webhookcip.Authority, verifi
 }
 
 func ValidatePolicyAttestationsForAuthorityWithBundle(ctx context.Context, ref name.Reference, authority webhookcip.Authority, kc authn.Keychain) (map[string][]PolicyAttestation, error) {
+	// TODO: Apply authority.Source options (Tag prefix, alternative registry, and signature pull secrets)
 	remoteOpts := []remote.Option{
 		remote.WithContext(ctx),
 		remote.WithAuthFromKeychain(kc),
-	}
-	// TODO: Apply authority.Source options (Tag prefix, alternative registry, and signature pull secrets)
-	if len(remoteOpts) > 0 {
-		remoteOpts = append(remoteOpts, remoteOpts...)
 	}
 
 	trustedMaterial, err := trustedMaterialFromAuthority(ctx, authority)
