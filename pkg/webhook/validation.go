@@ -24,11 +24,10 @@ import (
 	"knative.dev/pkg/logging"
 
 	"github.com/sigstore/cosign/v2/pkg/cosign"
-	"github.com/sigstore/cosign/v2/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-func valid(ctx context.Context, ref name.Reference, keys []crypto.PublicKey, hashAlgo crypto.Hash, checkOpts *cosign.CheckOpts) ([]oci.Signature, error) {
+func valid(ctx context.Context, ref name.Reference, keys []crypto.PublicKey, hashAlgo crypto.Hash, checkOpts *cosign.CheckOpts) ([]Signature, error) {
 	if len(keys) == 0 {
 		return validSignatures(ctx, ref, checkOpts)
 	}
@@ -58,16 +57,24 @@ func valid(ctx context.Context, ref name.Reference, keys []crypto.PublicKey, has
 var cosignVerifySignatures = cosign.VerifyImageSignatures
 var cosignVerifyAttestations = cosign.VerifyImageAttestations
 
-func validSignatures(ctx context.Context, ref name.Reference, checkOpts *cosign.CheckOpts) ([]oci.Signature, error) {
+func validSignatures(ctx context.Context, ref name.Reference, checkOpts *cosign.CheckOpts) ([]Signature, error) {
 	checkOpts.ClaimVerifier = cosign.SimpleClaimVerifier
 	sigs, _, err := cosignVerifySignatures(ctx, ref, checkOpts)
-	return sigs, err
+	sigList := make([]Signature, len(sigs))
+	for i, s := range sigs {
+		sigList[i] = s
+	}
+	return sigList, err
 }
 
-func validAttestations(ctx context.Context, ref name.Reference, checkOpts *cosign.CheckOpts) ([]oci.Signature, error) {
+func validAttestations(ctx context.Context, ref name.Reference, checkOpts *cosign.CheckOpts) ([]Signature, error) {
 	checkOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 	attestations, _, err := cosignVerifyAttestations(ctx, ref, checkOpts)
-	return attestations, err
+	sigList := make([]Signature, len(attestations))
+	for i, s := range attestations {
+		sigList[i] = s
+	}
+	return sigList, err
 }
 
 func parsePems(b []byte) []*pem.Block {
