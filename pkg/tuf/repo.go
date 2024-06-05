@@ -28,7 +28,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing/fstest"
 	"time"
 
@@ -293,18 +292,15 @@ func ClientFromRemote(_ context.Context, mirror string, rootJSON []byte, targets
 }
 
 var (
-	mutex              sync.Mutex
-	trustedRoot        *root.TrustedRoot
 	singletonRootError error
 	timestamp          time.Time
+	trustedRoot        *root.TrustedRoot
 )
 
 // GetTrustedRoot returns the trusted root for the TUF repository.
 func GetTrustedRoot() (*root.TrustedRoot, error) {
 	now := time.Now().UTC()
 	if timestamp.IsZero() || timestamp.Before(now.Add(-24*time.Hour)) {
-		mutex.Lock()
-
 		tufClient, err := tuf.NewFromEnv(context.Background())
 		if err != nil {
 			singletonRootError = fmt.Errorf("initializing tuf: %w", err)
@@ -317,8 +313,6 @@ func GetTrustedRoot() (*root.TrustedRoot, error) {
 		trustedRoot, singletonRootError = root.NewTrustedRootFromJSON(targetBytes)
 
 		timestamp = now
-
-		mutex.Unlock()
 	}
 	if singletonRootError != nil {
 		return nil, singletonRootError
