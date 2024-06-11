@@ -292,9 +292,8 @@ func ClientFromRemote(_ context.Context, mirror string, rootJSON []byte, targets
 }
 
 var (
-	singletonRootError error
-	timestamp          time.Time
-	trustedRoot        *root.TrustedRoot
+	timestamp   time.Time
+	trustedRoot *root.TrustedRoot
 )
 
 // GetTrustedRoot returns the trusted root for the TUF repository.
@@ -303,19 +302,21 @@ func GetTrustedRoot() (*root.TrustedRoot, error) {
 	if timestamp.IsZero() || timestamp.Before(now.Add(-24*time.Hour)) {
 		tufClient, err := tuf.NewFromEnv(context.Background())
 		if err != nil {
-			singletonRootError = fmt.Errorf("initializing tuf: %w", err)
+			return nil, fmt.Errorf("initializing tuf: %w", err)
 		}
 		// TODO: add support for custom trusted root path
 		targetBytes, err := tufClient.GetTarget("trusted_root.json")
 		if err != nil {
-			singletonRootError = fmt.Errorf("error getting targets: %w", err)
+			return nil, fmt.Errorf("error getting targets: %w", err)
 		}
-		trustedRoot, singletonRootError = root.NewTrustedRootFromJSON(targetBytes)
+		trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
+		if err != nil {
+			return nil, fmt.Errorf("error creating trusted root: %w", err)
+		}
 
 		timestamp = now
-	}
-	if singletonRootError != nil {
-		return nil, singletonRootError
+
+		return trustedRoot, nil
 	}
 	return trustedRoot, nil
 }
