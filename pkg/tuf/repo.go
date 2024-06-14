@@ -302,7 +302,9 @@ var (
 // GetTrustedRoot returns the trusted root for the TUF repository.
 func GetTrustedRoot() (*root.TrustedRoot, error) {
 	now := time.Now().UTC()
-	if timestamp.IsZero() || timestamp.Before(now.Add(-24*time.Hour)) {
+	// check if timestamp has never been or if the current time is more
+	// than 24 hours after the current value of timestamp
+	if timestamp.IsZero() || now.After(timestamp.Add(24*time.Hour)) {
 		mu.Lock()
 		defer mu.Unlock()
 
