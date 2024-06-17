@@ -118,7 +118,7 @@ jobs:
       uses: sigstore/scaffolding/actions/setup@main
       with:
         k8s-version: ${{ matrix.k8s-version}}
-        version: ${{ env.SCAFFOLDING_RELEASE_VERSION }}
+        version: main
 
     - name: Install policy-controller
       env:
