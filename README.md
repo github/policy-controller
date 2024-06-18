@@ -7,7 +7,8 @@ fork will be archived.
 The `policy-controller` admission controller can be used to enforce policy on a Kubernetes cluster based on verifiable supply-chain metadata from `cosign` and
 artifacts attestations produced by the [attest-build-provenance GitHub Action](https://github.com/actions/attest-build-provenance).
 
-For more information about the `policy-controller`, have a look at our documentation website [here](https://docs.sigstore.dev/policy-controller/overview).
+For more information about the `policy-controller`, have a look at the Sigstore documentation
+[here](https://docs.sigstore.dev/policy-controller/overview).
 
 ## Background 
 
@@ -80,8 +81,9 @@ You can provide the managed identity's client ID as a custom environment
 variable when installing the Helm chart:
 
 ```bash
-helm install policy-controller sigstore/policy-controller --version 0.9.0 \
---set webhook.env.AZURE_CLIENT_ID=my-managed-id-client-id,webhook.env.AZURE_TENANT_ID=tenant-id
+helm install policy-controller oci://ghcr.io/artifact-attestations-helm-charts/policy-controller \
+    --version 0.9.0 \
+    --set webhook.env.AZURE_CLIENT_ID=my-managed-id-client-id,webhook.env.AZURE_TENANT_ID=tenant-id
 ```
 
 ### Service Principals for AKS Clusters
@@ -92,8 +94,9 @@ You should be able to provide the service principal client ID and tenant ID
 as a workload identity annotations:
 
 ```bash
-helm upgrade --install policy-controller sigstore/policy-controller --version 0.9.0 \
---set-json webhook.serviceAccount.annotations="{\"azure.workload.identity/client-id\": \"${SERVICE_PRINCIPAL_CLIENT_ID}\", \"azure.workload.identity/tenant-id\": \"${TENANT_ID}\"}"
+helm install policy-controller oci://ghcr.io/artifact-attestations-helm-charts/policy-controller \  
+    --version 0.9.0 \
+    --set-json webhook.serviceAccount.annotations="{\"azure.workload.identity/client-id\": \"${SERVICE_PRINCIPAL_CLIENT_ID}\", \"azure.workload.identity/tenant-id\": \"${TENANT_ID}\"}"
 ```
 
 ## License 
