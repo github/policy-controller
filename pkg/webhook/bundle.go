@@ -21,10 +21,14 @@ import (
 
 type noncompliantRegistryTransport struct{}
 
-// noncompliantRegistryTransport#RoundTrip will check if the response from a referrers
-// endpoint returns a 406 status code, which is unexpected and not handled by default.
-// If a 406 status code is found, it will be updated to a 404, which is handled by
-// the underlying go-containerregistry library used
+// RoundTrip will check if a request and associated response fulfill the following:
+// 1. The response returns a 406 status code
+// 2. The request path contains /referrers/
+// If both conditions are met, the response's status code will be overwritten to 404
+// This is a temporary solution to handle non compliant registries that return
+// an unexpected status code 406 when the go-containerregistry library used
+// by this code attempts to make a request to the referrers API.
+// The go-contqainerregistry library can handle 404 response but not a 406 response.
 func (a *noncompliantRegistryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if resp.StatusCode == http.StatusNotAcceptable && strings.Contains(req.URL.Path, "/referrers/") {
