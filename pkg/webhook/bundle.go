@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -17,6 +18,26 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
+
+type noncompliantRegistryTransport struct{}
+
+// RoundTrip will check if a request and associated response fulfill the following:
+// 1. The response returns a 406 status code
+// 2. The request path contains /referrers/
+// If both conditions are met, the response's status code will be overwritten to 404
+// This is a temporary solution to handle non compliant registries that return
+// an unexpected status code 406 when the go-containerregistry library used
+// by this code attempts to make a request to the referrers API.
+// The go-containerregistry library can handle 404 response but not a 406 response.
+// See the related go-containerregistry issue: https://github.com/google/go-containerregistry/issues/1962
+func (a *noncompliantRegistryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if resp.StatusCode == http.StatusNotAcceptable && strings.Contains(req.URL.Path, "/referrers/") {
+		resp.StatusCode = http.StatusNotFound
+	}
+
+	return resp, err
+}
 
 type VerifiedBundle struct {
 	SGBundle *bundle.Bundle
@@ -94,7 +115,9 @@ func getBundles(ref name.Reference, remoteOpts []remote.Option) ([]*bundle.Bundl
 
 	digest := ref.Context().Digest(desc.Digest.String())
 
-	referrers, err := remote.Referrers(digest, remoteOpts...)
+	transportOpts := []remote.Option{remote.WithTransport(&noncompliantRegistryTransport{})}
+	transportOpts = append(transportOpts, remoteOpts...)
+	referrers, err := remote.Referrers(digest, transportOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting referrers: %w", err)
 	}
