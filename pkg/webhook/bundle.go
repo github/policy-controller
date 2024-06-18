@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -17,6 +18,17 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
 )
+
+type noncompliantRegistryTransport struct{}
+
+func (a *noncompliantRegistryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if resp.StatusCode == http.StatusNotAcceptable && strings.Contains(req.URL.Path, "/referrers/") {
+		resp.StatusCode = http.StatusNotFound
+	}
+
+	return resp, err
+}
 
 type VerifiedBundle struct {
 	SGBundle *bundle.ProtobufBundle
@@ -93,7 +105,9 @@ func getBundles(ref name.Reference, remoteOpts []remote.Option) ([]*bundle.Proto
 
 	digest := ref.Context().Digest(desc.Digest.String())
 
-	referrers, err := remote.Referrers(digest, remoteOpts...)
+	transportOpts := []remote.Option{remote.WithTransport(&noncompliantRegistryTransport{})}
+	transportOpts = append(transportOpts, remoteOpts...)
+	referrers, err := remote.Referrers(digest, transportOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error getting referrers: %w", err)
 	}
