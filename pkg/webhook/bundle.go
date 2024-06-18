@@ -28,7 +28,7 @@ type noncompliantRegistryTransport struct{}
 // This is a temporary solution to handle non compliant registries that return
 // an unexpected status code 406 when the go-containerregistry library used
 // by this code attempts to make a request to the referrers API.
-// The go-contqainerregistry library can handle 404 response but not a 406 response.
+// The go-containerregistry library can handle 404 response but not a 406 response.
 // See the related go-containerregistry issue: https://github.com/google/go-containerregistry/issues/1962
 func (a *noncompliantRegistryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := http.DefaultTransport.RoundTrip(req)
