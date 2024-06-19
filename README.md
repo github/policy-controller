@@ -1,26 +1,20 @@
-<p align="center">
-  <img style="max-width: 100%;width: 300px;" src="https://raw.githubusercontent.com/sigstore/community/main/artwork/policy-controller/Horizontal/Full%20Color/sigstore_policycontroller-horizontal-color.svg" alt="Cosign logo"/>
-</p>
+# GitHub Managed Policy Controller
 
-# Policy Controller
+This repository hosts a temporary GitHub owned 
+fork of the [Sigstore Policy Controller repository](https://github.com/sigstore/policy-controller). Once functionality only present in this fork is merged upstream to [sigstore/policy-controller](https://github.com/sigstore/policy-controller), this
+fork will be archived.
 
-The `policy-controller` admission controller can be used to enforce policy on a Kubernetes cluster based on verifiable supply-chain metadata from `cosign`.
+The `policy-controller` admission controller can be used to enforce policy on a Kubernetes cluster based on verifiable supply-chain metadata from `cosign` and
+artifacts attestations produced by the [attest-build-provenance GitHub Action](https://github.com/actions/attest-build-provenance).
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/sigstore/policy-controller)](https://goreportcard.com/report/github.com/sigstore/policy-controller)
-[![e2e-tests](https://github.com/sigstore/policy-controller/actions/workflows/kind-e2e-cosigned.yaml/badge.svg)](https://github.com/sigstore/policy-controller/actions/workflows/kind-e2e-cosigned.yaml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/sigstore/policy-controller/badge)](https://api.securityscorecards.dev/projects/github.com/sigstore/policy-controller)
+For more information about the `policy-controller`, have a look at the Sigstore documentation
+[here](https://docs.sigstore.dev/policy-controller/overview).
 
-`policy-controller` also resolves the image tags to ensure the image being ran is not different from when it was admitted.
+## Background 
 
-See the [installation instructions](https://docs.sigstore.dev/policy-controller/installation) for more information.
-
-Today, `policy-controller` can automatically validate signatures and
-attestations on container images.
-Enforcement is configured on a per-namespace basis, and multiple keys are supported.
-
-We're actively working on more features here.
-
-For more information about the `policy-controller`, have a look at our documentation website [here](https://docs.sigstore.dev/policy-controller/overview).
+See the [official documentation](https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds) on
+using artifact attestations to establish build provenance and
+the [blog post](https://github.blog/2024-05-02-introducing-artifact-attestations-now-in-public-beta/) introducing Artifact Attestations.
 
 ## Examples
 
@@ -43,33 +37,6 @@ Then run it pointing to a YAML file containing a ClusterImagePolicy, and an imag
         --policy=test/testdata/policy-controller/tester/cip-public-keyless.yaml \
         --image=ghcr.io/sigstore/cosign/cosign:v1.9.0 | jq)
 ```
-
-## Local Development
-
-You can spin up a local [Kind](https://kind.sigs.k8s.io/) K8s cluster to test local changes to the policy controller using the `local-dev`
-CLI tool. Build the tool with `make local-dev` and then run it with `./bin/local-dev setup`.
-
-It optionally accepts the following:
-
-```
---cluster-name
---k8s-version
---registry-url
-```
-
-You can clean up the cluster with `./bin/local-dev clean --cluster-name=<my cluster name>`.
-
-You will need to have the following tools installed to use this:
-- [Docker](https://docs.docker.com/get-docker/)
-- [kind](https://kind.sigs.k8s.io/)
-- [ko](https://ko.build/install/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-
-### Use local registry
-
-If you would like to use the local Kind registry instead of a live one,
-do not include the `registry-url` flag when calling the CLI. It will default to using the local registry. But before running the CLI, you must add the following line to your `/etc/hosts` file first:
-`127.0.0.1 registry.local`
 
 ## Using Policy Controller with Azure Container Registry (ACR)
 
@@ -114,8 +81,9 @@ You can provide the managed identity's client ID as a custom environment
 variable when installing the Helm chart:
 
 ```bash
-helm install policy-controller sigstore/policy-controller --version 0.9.0 \
---set webhook.env.AZURE_CLIENT_ID=my-managed-id-client-id,webhook.env.AZURE_TENANT_ID=tenant-id
+helm install policy-controller oci://ghcr.io/artifact-attestations-helm-charts/policy-controller \
+    --version 0.9.0 \
+    --set webhook.env.AZURE_CLIENT_ID=my-managed-id-client-id,webhook.env.AZURE_TENANT_ID=tenant-id
 ```
 
 ### Service Principals for AKS Clusters
@@ -126,11 +94,25 @@ You should be able to provide the service principal client ID and tenant ID
 as a workload identity annotations:
 
 ```bash
-helm upgrade --install policy-controller sigstore/policy-controller --version 0.9.0 \
---set-json webhook.serviceAccount.annotations="{\"azure.workload.identity/client-id\": \"${SERVICE_PRINCIPAL_CLIENT_ID}\", \"azure.workload.identity/tenant-id\": \"${TENANT_ID}\"}"
+helm install policy-controller oci://ghcr.io/artifact-attestations-helm-charts/policy-controller \  
+    --version 0.9.0 \
+    --set-json webhook.serviceAccount.annotations="{\"azure.workload.identity/client-id\": \"${SERVICE_PRINCIPAL_CLIENT_ID}\", \"azure.workload.identity/tenant-id\": \"${TENANT_ID}\"}"
 ```
 
-## Support Policy
+## License 
+
+This project is licensed under the terms of the Apache 2.0 open source license. Please refer to [Apache 2.0](./LICENSE) for the full terms.
+
+## Maintainers 
+
+See [CODEOWNERS](./CODEOWNERS) for a list of maintainers.
+
+## Support
+
+If you have any questions or issues following examples outlined in this repository,
+please file an [issue](https://github.com/github/policy-controller-helm/issues/new?template=Blank+issue) and we will assist you.
+
+## K8s Support Policy
 
 This policy-controller's versions are able to run in the following versions of Kubernetes:
 
@@ -145,7 +127,14 @@ This policy-controller's versions are able to run in the following versions of K
 
 note: not fully tested yet, but can be installed
 
-## Cutting a new release
+## Security
+
+Should you discover any security issues, please refer to Sigstore's [security
+policy](https://github.com/sigstore/policy-controller/security/policy).
+
+## Maintainer Documentation
+
+### Cutting a new release
 
 The branch `release` on the private fork is used for customer-facing released code. 
 
@@ -155,8 +144,3 @@ In order to push a new release, follow these steps:
 1. Tag as `v0.9.0+githubX` (incrementing the `X` as needed).
 1. Push the tag to the private fork.
 1. The [Release GitHub Action workflow](https://github.com/github/policy-controller/actions/workflows/release.yaml) will triggered automatically when the tag is pushed
-
-## Security
-
-Should you discover any security issues, please refer to Sigstore's [security
-policy](https://github.com/sigstore/policy-controller/security/policy).
