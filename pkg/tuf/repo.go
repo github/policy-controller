@@ -299,29 +299,45 @@ func ClientFromRemote(_ context.Context, mirror string, rootJSON []byte, targets
 }
 
 var (
-	once               sync.Once
-	trustedRoot        *root.TrustedRoot
+	mu                 sync.RWMutex
 	singletonRootError error
+	timestamp          time.Time
+	trustedRoot        *root.TrustedRoot
 )
 
 // GetTrustedRoot returns the trusted root for the TUF repository.
 func GetTrustedRoot() (*root.TrustedRoot, error) {
-	once.Do(func() {
+	now := time.Now().UTC()
+	// check if timestamp has never been or if the current time is more
+	// than 24 hours after the current value of timestamp
+	if timestamp.IsZero() || now.After(timestamp.Add(24*time.Hour)) {
+		mu.Lock()
+		defer mu.Unlock()
+
 		tufClient, err := tuf.NewFromEnv(context.Background())
 		if err != nil {
 			singletonRootError = fmt.Errorf("initializing tuf: %w", err)
-			return
+			return nil, singletonRootError
 		}
 		// TODO: add support for custom trusted root path
 		targetBytes, err := tufClient.GetTarget("trusted_root.json")
 		if err != nil {
 			singletonRootError = fmt.Errorf("error getting targets: %w", err)
-			return
+			return nil, singletonRootError
 		}
-		trustedRoot, singletonRootError = root.NewTrustedRootFromJSON(targetBytes)
-	})
-	if singletonRootError != nil {
-		return nil, singletonRootError
+		trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
+		if err != nil {
+			singletonRootError = fmt.Errorf("error creating trusted root: %w", err)
+			return nil, singletonRootError
+		}
+
+		timestamp = now
+
+		return trustedRoot, nil
 	}
+
+	mu.RLock()
+	defer mu.RUnlock()
+
 	return trustedRoot, nil
 }
