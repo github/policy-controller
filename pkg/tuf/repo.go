@@ -300,11 +300,12 @@ var (
 )
 
 // GetTrustedRoot returns the trusted root for the TUF repository.
-func GetTrustedRoot() (*root.TrustedRoot, error) {
+func GetTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
+	resyncPeriodDuration := FromContextOrDefaults(ctx)
 	now := time.Now().UTC()
 	// check if timestamp has never been or if the current time is more
-	// than 24 hours after the current value of timestamp
-	if timestamp.IsZero() || now.After(timestamp.Add(24*time.Hour)) {
+	// than the resync duration period after the current timestamp value
+	if timestamp.IsZero() || now.After(timestamp.Add(resyncPeriodDuration)) {
 		mu.Lock()
 		defer mu.Unlock()
 
