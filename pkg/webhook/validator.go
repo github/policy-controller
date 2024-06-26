@@ -1055,7 +1055,7 @@ func trustedMaterialFromAuthority(ctx context.Context, authority webhookcip.Auth
 				return nil, fmt.Errorf("trusted root \"%s\" does not exist", authority.Keyless.TrustRootRef)
 			}
 		}
-		trustedMaterial, err := pctuf.GetTrustedRoot()
+		trustedMaterial, err := pctuf.GetTrustedRoot(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse trusted root from protobuf: %w", err)
 		}
