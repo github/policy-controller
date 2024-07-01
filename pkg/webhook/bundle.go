@@ -24,12 +24,10 @@ type noncompliantRegistryTransport struct{}
 
 /*
 RoundTrip will check if a request and associated response fulfill the following:
- 1. The response returns a 406 status code
- 2. The request path contains /referrers/
- 3. The response content type is not application/vnd.oci.image.index.v1+json
+ 1. The response returns a 406 status code and the request path contains /referrers/
+ 2. The response content type is not application/vnd.oci.image.index.v1+json
 
-If conditions #1 and #2 are both met OR condition #3 is met,
-the response's status code will be overwritten to 404.
+If either condition is met, the response's status code will be overwritten to 404.
 
 This is a temporary solution to handle non compliant registries that either:
  1. return an unexpected status code 406 when the go-containerregistry library used
