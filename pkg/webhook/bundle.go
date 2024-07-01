@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
@@ -21,18 +22,29 @@ import (
 
 type noncompliantRegistryTransport struct{}
 
-// RoundTrip will check if a request and associated response fulfill the following:
-// 1. The response returns a 406 status code
-// 2. The request path contains /referrers/
-// If both conditions are met, the response's status code will be overwritten to 404
-// This is a temporary solution to handle non compliant registries that return
-// an unexpected status code 406 when the go-containerregistry library used
-// by this code attempts to make a request to the referrers API.
-// The go-containerregistry library can handle 404 response but not a 406 response.
-// See the related go-containerregistry issue: https://github.com/google/go-containerregistry/issues/1962
+/*
+RoundTrip will check if a request and associated response fulfill the following:
+ 1. The response returns a 406 status code
+ 2. The request path contains /referrers/
+ 3. The response content type is not application/vnd.oci.image.index.v1+json
+
+If conditions #1 and #2 are both met OR condition #3 is met,
+the response's status code will be overwritten to 404.
+
+This is a temporary solution to handle non compliant registries that either:
+ 1. return an unexpected status code 406 when the go-containerregistry library used
+    by this code attempts to make a request to the referrers API.
+    The go-containerregistry library can handle 404 response but not a 406 response.
+    See the related go-containerregistry issue: https://github.com/google/go-containerregistry/issues/1962
+ 2. Do not return a response with the required application/vnd.oci.image.index.v1+json Content-Type header.
+    If https://github.com/google/go-containerregistry/pull/1968 is merged,
+    we can remove the Content-Type check.
+*/
 func (a *noncompliantRegistryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := http.DefaultTransport.RoundTrip(req)
-	if resp.StatusCode == http.StatusNotAcceptable && strings.Contains(req.URL.Path, "/referrers/") {
+	respContentType := resp.Header.Get("Content-Type")
+
+	if (resp.StatusCode == http.StatusNotAcceptable && strings.Contains(req.URL.Path, "/referrers/")) || respContentType != string(types.OCIImageIndex) {
 		resp.StatusCode = http.StatusNotFound
 	}
 
