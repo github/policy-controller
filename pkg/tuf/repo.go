@@ -320,7 +320,7 @@ func GetTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
 			singletonRootError = fmt.Errorf("error getting targets: %w", err)
 			return nil, singletonRootError
 		}
-		trustedRoot, err := root.NewTrustedRootFromJSON(targetBytes)
+		trustedRoot, err = root.NewTrustedRootFromJSON(targetBytes)
 		if err != nil {
 			singletonRootError = fmt.Errorf("error creating trusted root: %w", err)
 			return nil, singletonRootError
